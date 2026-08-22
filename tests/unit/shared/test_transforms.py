@@ -15,6 +15,7 @@ import pytest
 
 from src.shared.frames.transforms import (
     StateVector,
+    apply_rotation_batch,
     ecef_to_eci,
     ecef_to_geodetic,
     eci_to_ecef,
@@ -24,6 +25,7 @@ from src.shared.frames.transforms import (
     ric_to_eci,
     teme_to_eci,
     teme_to_eci_batch,
+    teme_to_eci_rotation_matrices,
 )
 
 EPOCH = datetime(2026, 8, 22, 0, 0, 0, tzinfo=timezone.utc)
@@ -169,3 +171,49 @@ class TestRicFrame:
 
         v_ric_fd = (ric2.position_km - ric.position_km) / dt
         np.testing.assert_allclose(ric.velocity_km_s, v_ric_fd, atol=1e-6)
+
+
+class TestTemeToEciRotationMatrices:
+    def test_disabling_decimation_matches_per_epoch_teme_to_eci(self):
+        epochs = [EPOCH + timedelta(minutes=i) for i in range(5)]
+        rotations = teme_to_eci_rotation_matrices(epochs, max_spacing_s=0)
+
+        for i, epoch in enumerate(epochs):
+            expected = teme_to_eci(ISS_TEME, epoch)
+            got_pos, got_vel = apply_rotation_batch(
+                rotations[i][None, :, :], ISS_TEME.position_km[None, :], ISS_TEME.velocity_km_s[None, :]
+            )
+            np.testing.assert_allclose(got_pos[0], expected.position_km, atol=1e-9)
+            np.testing.assert_allclose(got_vel[0], expected.velocity_km_s, atol=1e-9)
+
+    def test_decimation_is_a_close_approximation_of_the_exact_rotation(self):
+        """
+        Decimated (default max_spacing_s=300) rotations must stay extremely
+        close to the exact per-epoch rotation -- centimeters of position
+        error at most, per the module docstring's measured bound.
+        """
+        epochs = [EPOCH + timedelta(seconds=60 * i) for i in range(180)]  # 3 hours @ 60s
+
+        exact = teme_to_eci_rotation_matrices(epochs, max_spacing_s=0)
+        decimated = teme_to_eci_rotation_matrices(epochs, max_spacing_s=300.0)
+
+        r = ISS_TEME.position_km
+        pos_exact, _ = apply_rotation_batch(exact, np.tile(r, (len(epochs), 1)), np.tile(r, (len(epochs), 1)))
+        pos_decimated, _ = apply_rotation_batch(decimated, np.tile(r, (len(epochs), 1)), np.tile(r, (len(epochs), 1)))
+
+        position_error_km = np.linalg.norm(pos_exact - pos_decimated, axis=1)
+        assert np.max(position_error_km) < 0.001  # < 1 meter, per the measured ~11cm/30min bound
+
+    def test_decimation_reduces_number_of_distinct_matrices(self):
+        epochs = [EPOCH + timedelta(seconds=60 * i) for i in range(180)]  # 3 hours @ 60s -> would be 180 exact samples
+        decimated = teme_to_eci_rotation_matrices(epochs, max_spacing_s=300.0)
+        distinct = {tuple(np.round(decimated[i].ravel(), 12)) for i in range(len(epochs))}
+        assert len(distinct) < len(epochs)  # fewer unique matrices than timesteps -- decimation actually happened
+
+    def test_single_epoch_does_not_crash(self):
+        rotations = teme_to_eci_rotation_matrices([EPOCH], max_spacing_s=300.0)
+        assert rotations.shape == (1, 3, 3)
+
+    def test_two_epochs_does_not_crash(self):
+        rotations = teme_to_eci_rotation_matrices([EPOCH, EPOCH + timedelta(hours=1)], max_spacing_s=300.0)
+        assert rotations.shape == (2, 3, 3)

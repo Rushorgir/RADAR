@@ -43,6 +43,16 @@ def _to_jday(epoch: datetime) -> tuple[float, float]:
     return jday(epoch.year, epoch.month, epoch.day, epoch.hour, epoch.minute, epoch.second + epoch.microsecond * 1e-6)
 
 
+def build_epoch_grid(start: datetime, end: datetime, step_s: float) -> list[datetime]:
+    """Build the regular [start, end] timestep grid (inclusive of start) shared by batch propagation."""
+    if end < start:
+        raise ValueError("end must be >= start")
+    if step_s <= 0:
+        raise ValueError("step_s must be positive")
+    n_steps = int((end - start).total_seconds() // step_s) + 1
+    return [start + timedelta(seconds=i * step_s) for i in range(n_steps)]
+
+
 def build_jd_fr_grid(epochs: list[datetime]) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert a list of epochs into the (jd, fr) arrays `Satrec.sgp4_array` expects.

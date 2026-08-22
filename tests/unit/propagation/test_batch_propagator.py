@@ -31,7 +31,7 @@ class TestPropagateCatalog:
     def test_propagates_every_object_in_catalog(self):
         dataset = _dataset()
         start = min(t.epoch for t in dataset)
-        result = propagate_catalog(dataset, start, start + timedelta(hours=1), step_s=60.0, max_workers=2)
+        result = propagate_catalog(dataset, start, start + timedelta(hours=1), step_s=60.0)
 
         assert set(result.object_ids) == {"25544", "34427"}
         for traj in result.trajectories.values():
