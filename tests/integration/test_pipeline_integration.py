@@ -2,21 +2,30 @@
 Integration tests for bridging AI-1 (Propagation) and AI-2 (Conjunction).
 Owner: Rushaan & Anas
 """
+import importlib
 import pytest
 import numpy as np
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 import sys
 
-import importlib
-
+# Some platforms (reported: Python 3.14 on macOS) hit C-extension deadlocks
+# importing astropy/sgp4/erfa. This test doesn't need them for real (it
+# constructs CatalogPropagationArrays directly rather than running SGP4), so
+# fall back to mocks there -- but only for modules that genuinely fail to
+# import. Unconditionally mocking here (regardless of whether the real import
+# would have worked) poisons sys.modules for the rest of the pytest process:
+# any other test file that imports src.propagation.batch_arrays /
+# src.shared.frames.transforms afterward -- which DO need real astropy/sgp4 --
+# would get these fakes instead, since Python caches modules in sys.modules
+# and won't re-import a module that's already "loaded".
 for _mod_name in (
     "astropy", "astropy.time", "astropy.coordinates", "astropy.units",
     "erfa", "sgp4", "sgp4.api", "sgp4.ext", "sgp4.earth_gravity",
 ):
     try:
         importlib.import_module(_mod_name)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - deliberately broad: any import failure means "fall back to mock"
         sys.modules[_mod_name] = MagicMock()
 
 from src.conjunction.pipeline import ConjunctionPipeline

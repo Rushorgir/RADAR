@@ -15,6 +15,31 @@ RADAR is a modular Space Situational Awareness (SSA) system that:
 
 ---
 
+## Project Status
+
+| Stage | Status | Notes |
+|---|---|---|
+| TLE ingestion (Celestrak) | ✅ Working | Live data, cached, LEO-filtered |
+| SGP4 propagation | ✅ Working | 800 objects × 72h × 60s step in ~2.5s |
+| Coordinate transforms | ✅ Working | TEME ↔ ECI ↔ ECEF ↔ RIC, astropy-backed |
+| Conjunction screening (coarse + fine filter) | ✅ Working | k-d tree fine filter, TCA refinement |
+| Probability of Collision (Foster 2D + Monte Carlo) | ✅ Working | Auto-selects method per encounter |
+| **Full AI-1 → AI-2 pipeline, end-to-end** | ✅ **Verified** | Live data, 800 objects/72h: **~5.7s total**, 69 conjunction events found |
+| ML risk ranking (LightGBM + SHAP) | ⏳ Not started | — |
+| Maneuver advisory | ⏳ Not started | — |
+| Backend API | ⏳ Not started | — |
+| Frontend / Cesium dashboard | ⏳ Not started | — |
+
+**131 automated tests passing** (98 ingestion/propagation/coordinate-transform +
+33 conjunction/Pc + 1 cross-module integration test). See
+[AI1_IMPLEMENTATION_NOTES.md](AI1_IMPLEMENTATION_NOTES.md) for the AI-1 side
+in detail (including a real performance investigation — an early full-scale
+run took 5+ minutes before optimization, verified numbers throughout) and
+[TEST_SUITE_MOCK_BUG_FIX.md](TEST_SUITE_MOCK_BUG_FIX.md) for a cross-team
+test-infrastructure bug that was found and fixed while integrating.
+
+---
+
 ## Team & Module Ownership
 
 | Role | Person | Module | Directory |
@@ -46,9 +71,10 @@ RADAR/
 │   ├── ingestion/          # [AI-1: Anas] TLE fetch & parse from Celestrak
 │   ├── propagation/        # [AI-1: Anas] SGP4 propagation engine
 │   ├── conjunction/        # [AI-2: Rushaan] Conjunction screening + Pc
-│   │   ├── models/         #   Pydantic data models (CDM schema, state vectors)
-│   │   ├── screening/      #   Two-stage coarse + fine filter engine
-│   │   └── probability/    #   Foster 2D Pc + Monte Carlo fallback
+│   │   ├── models/         #   state.py, encounter.py, conjunction_event.py
+│   │   ├── screening/      #   coarse_filter.py, fine_filter.py, tca_refiner.py, engine.py
+│   │   ├── probability/    #   foster_2d.py, monte_carlo.py, encounter_frame.py, engine.py
+│   │   └── pipeline.py     #   End-to-end: CatalogPropagationArrays -> ConjunctionEvents
 │   ├── ml/                 # [AI-3: Udarsh] ML risk ranking pipeline
 │   │   ├── features/       #   Feature engineering from conjunction events
 │   │   ├── ranking/        #   LightGBM + TabPFN model training/inference
@@ -76,10 +102,11 @@ RADAR/
 ├── docs/                   # Architecture docs, pitch deck, demo script
 ├── scripts/                # Utility scripts (data download, pipeline runners)
 ├── config/                 # Configuration files (thresholds, API keys)
-├── sources/                # Original problem statement PDFs
+├── resources/              # Problem statement PDFs, team plan
 ├── requirements.txt        # Python dependencies
 ├── pyproject.toml          # Project metadata
-├── AI1_IMPLEMENTATION_NOTES.md  # AI-1 module deep-dive: what was built, how it was verified, perf notes
+├── AI1_IMPLEMENTATION_NOTES.md   # AI-1 module deep-dive: what was built, how it was verified, perf notes
+├── TEST_SUITE_MOCK_BUG_FIX.md    # A cross-team test-infrastructure bug: found, diagnosed, fixed
 └── docker-compose.yml      # Deployment orchestration
 ```
 
