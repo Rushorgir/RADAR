@@ -35,8 +35,15 @@ export function buildObjectDetail(object, riskList) {
   const risk = getRiskMeta(object.risk_tier ?? event?.risk_tier, score);
   const velocity = object.velocity_km_s ?? event?.relative_velocity_kms;
 
+  const objectId = normalizeId(object.object_id);
+  const atRiskDebrisCount = riskList.filter((e) => {
+    if (normalizeId(e.primary_id) === objectId && String(e.secondary_object_type).toUpperCase() === "DEBRIS") return true;
+    if (normalizeId(e.secondary_id) === objectId && String(e.primary_object_type).toUpperCase() === "DEBRIS") return true;
+    return false;
+  }).length;
+
   return {
-    id: normalizeId(object.object_id),
+    id: objectId,
     name: object.name ?? "Unknown object",
     type: object.type ?? "unknown",
     regime: object.regime ?? "UNASSESSED",
@@ -47,13 +54,14 @@ export function buildObjectDetail(object, riskList) {
     velocityLabel: object.velocity_km_s === undefined ? "Relative velocity" : "Velocity",
     risk,
     eventId: event?.event_id,
+    atRiskDebrisCount,
   };
 }
 
 export function formatNumber(value, digits = 2) {
-  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—";
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "N/A";
 }
 
 export function formatProbability(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value.toExponential(2) : "—";
+  return typeof value === "number" && Number.isFinite(value) ? value.toExponential(2) : "N/A";
 }

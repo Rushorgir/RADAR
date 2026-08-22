@@ -12,6 +12,8 @@ function DetailRow({ label, value, unit }) {
 export default function ObjectDetailPanel({ object, onClose }) {
   if (!object) return null;
 
+  const isSatellite = String(object.type).toLowerCase() === "satellite" || String(object.type).toLowerCase() === "payload";
+
   return (
     <aside className="object-detail hud-frame" aria-label={`${object.name} details`}>
       <div className="detail-heading">
@@ -30,14 +32,23 @@ export default function ObjectDetailPanel({ object, onClose }) {
         {object.risk.label} risk
       </div>
 
-      <div className="detail-grid">
-        <DetailRow label="Risk score" value={formatNumber(object.riskScore, 2)} />
-        <DetailRow label="Collision probability" value={formatProbability(object.collisionProbability)} />
-        <DetailRow label="Miss distance" value={formatNumber(object.missDistance, 2)} unit="km" />
-        <DetailRow label={object.velocityLabel} value={formatNumber(object.velocity, 1)} unit="km/s" />
-        <DetailRow label="Object type" value={object.type} />
-        <DetailRow label="Orbital regime" value={object.regime} />
-      </div>
+      {isSatellite ? (
+        <div className="detail-grid">
+          <DetailRow label="Object type" value={object.type} />
+          <DetailRow label="Orbital regime" value={object.regime} />
+          <DetailRow label={object.velocityLabel} value={formatNumber(object.velocity, 1)} unit="km/s" />
+          <DetailRow label="At-risk debris" value={object.atRiskDebrisCount} />
+        </div>
+      ) : (
+        <div className="detail-grid">
+          <DetailRow label="Risk score" value={formatNumber(object.riskScore, 2)} />
+          <DetailRow label="Collision probability" value={formatProbability(object.collisionProbability)} />
+          <DetailRow label="Miss distance" value={formatNumber(object.missDistance, 2)} unit="km" />
+          <DetailRow label={object.velocityLabel} value={formatNumber(object.velocity, 1)} unit="km/s" />
+          <DetailRow label="Object type" value={object.type} />
+          <DetailRow label="Orbital regime" value={object.regime} />
+        </div>
+      )}
 
       <div className="detail-footer eyebrow">
         {object.eventId ? `Conjunction // ${object.eventId}` : "No active conjunction assessment"}

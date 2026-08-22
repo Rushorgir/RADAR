@@ -137,8 +137,8 @@ def get_risk_distribution(db: Session) -> dict[str, int]:
             dist[cat] = count
     return dist
 
-def get_total_tracked_objects(db: Session) -> int:
-    return db.query(func.count(func.distinct(TLEModel.object_id))).scalar() or 0
+
+
 
 def get_recent_high_risk_events(db: Session, hours: int = 24):
     threshold_time = datetime.now(timezone.utc) - timedelta(hours=hours)

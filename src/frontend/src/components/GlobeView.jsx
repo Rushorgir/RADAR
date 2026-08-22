@@ -10,7 +10,6 @@ import {
   getWarningRing,
   isAnimatedRisk,
 } from "../utils/objectVisuals";
-import { fetchCurrentPositions } from "../utils/apiClient";
 
 // Zoom slider range. NaturalEarthII (see the imagery provider below) is a
 // low-resolution whole-Earth texture, not a tiled high-detail basemap -- it
@@ -85,35 +84,62 @@ const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GL
 // REFRESH_INTERVAL_MS of real time) rather than continuously animating --
 // preferable to smoothly animating through a position that was never
 // physically correct in the first place.
-const REFRESH_INTERVAL_MS = 4000;
+const EARTH_RADIUS_M = 6378137.0;
+const GM = 398600.4418e9; // Earth gravitational parameter (m^3/s^2)
+const EARTH_ROTATION_RATE_RAD_S = 7.292115e-5; // WGS84 nominal rotation rate (rad/s)
 
-function cartesianFromObject(obj) {
-  return Cesium.Cartesian3.fromDegrees(
-    Number(obj.longitude) || 0,
-    Number(obj.latitude) || 0,
-    (Number(obj.altitude_km) || 550) * 1000,
-  );
+function createOrbitalModel(obj, referenceJulianDate) {
+  const altM = (Number(obj.altitude_km) || 550) * 1000;
+  const a = EARTH_RADIUS_M + altM;
+  const periodSec = 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / GM);
+  const n = (2 * Math.PI) / periodSec;
+
+  const lat0 = Cesium.Math.toRadians(Number(obj.latitude) || 0);
+  const lon0 = Cesium.Math.toRadians(Number(obj.longitude) || 0);
+
+  const minIncDeg = Cesium.Math.toDegrees(Math.abs(lat0));
+  let incDeg = Number(obj.inclination_deg);
+  if (!incDeg || incDeg < minIncDeg) {
+    incDeg = Math.min(98, Math.max(minIncDeg + 4, 51.6));
+  }
+  const inc = Cesium.Math.toRadians(incDeg);
+
+  const sinU0 = Cesium.Math.clamp(Math.sin(lat0) / (Math.sin(inc) || 1), -1, 1);
+  const u0 = Math.asin(sinU0);
+  const nodeLon0 = lon0 - Math.atan2(Math.cos(inc) * Math.sin(u0), Math.cos(u0));
+
+  return {
+    a,
+    inc,
+    n,
+    u0,
+    nodeLon0,
+    refTime: referenceJulianDate,
+  };
 }
 
-// Smoothly interpolates between the two most recent real (time, position)
-// samples fetched for an object, rather than snapping straight to each new
-// fetch. Real SGP4-propagated samples only arrive every REFRESH_INTERVAL_MS
-// of real time (re-propagating the whole catalog isn't cheap enough to do
-// every render frame) -- linearly interpolating the straight-line distance
-// between two real points that close together in time is indistinguishable
-// from the true curved arc at normal orbital speeds, and it replaces the
-// visible "teleport" every refresh that snapping directly to each new
-// sample produced -- a jump that gets more noticeable the faster the
-// simulated clock runs, since a higher multiplier means a bigger simulated
-// time gap (and therefore a bigger position jump) between refreshes.
-function interpolatedPositionAt(samplesRef, objectId, time) {
-  const sample = samplesRef.current.get(objectId);
-  if (!sample) return undefined;
-  const totalSeconds = Cesium.JulianDate.secondsDifference(sample.nextTime, sample.prevTime);
-  if (totalSeconds <= 0) return sample.nextPos;
-  const elapsedSeconds = Cesium.JulianDate.secondsDifference(time, sample.prevTime);
-  const t = Cesium.Math.clamp(elapsedSeconds / totalSeconds, 0, 1);
-  return Cesium.Cartesian3.lerp(sample.prevPos, sample.nextPos, t, new Cesium.Cartesian3());
+function evaluateOrbitPosition(orbit, time) {
+  if (!orbit || !time) return undefined;
+  const dtSec = Cesium.JulianDate.secondsDifference(time, orbit.refTime);
+  
+  const u = orbit.u0 + orbit.n * dtSec;
+  const earthRot = EARTH_ROTATION_RATE_RAD_S * dtSec;
+  const nodeLon = orbit.nodeLon0 - earthRot;
+  
+  const xOrb = orbit.a * Math.cos(u);
+  const yOrb = orbit.a * Math.sin(u);
+  
+  const x1 = xOrb;
+  const y1 = yOrb * Math.cos(orbit.inc);
+  const z1 = yOrb * Math.sin(orbit.inc);
+  
+  const cosNode = Math.cos(nodeLon);
+  const sinNode = Math.sin(nodeLon);
+  const xECEF = x1 * cosNode - y1 * sinNode;
+  const yECEF = x1 * sinNode + y1 * cosNode;
+  const zECEF = z1;
+  
+  return new Cesium.Cartesian3(xECEF, yECEF, zECEF);
 }
 
 function animationPhase(time, periodSeconds) {
@@ -170,13 +196,7 @@ export default function GlobeView({
   const viewerRef = useRef(null);
   const corridorDataSourceRef = useRef(null);
   const entityMapRef = useRef(new Map());
-  // object_id -> { prevTime, prevPos, nextTime, nextPos }, the two most
-  // recent real SGP4-propagated samples for that object. Every entity
-  // sharing that object's position (billboard, warningRing, selectionRing)
-  // reads from this same map via a shared CallbackProperty, so updating an
-  // entry here moves all of them at once -- the periodic refresh effect
-  // below only ever touches this map, never entities directly.
-  const positionSamplesRef = useRef(new Map());
+  const orbitModelsRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
   const hoveredEntityRef = useRef(null);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
@@ -270,28 +290,6 @@ export default function GlobeView({
       destination: WHOLE_GLOBE_DESTINATION,
     });
 
-    // Without this, the camera stays fixed in the Earth-fixed (ECEF) frame
-    // by default -- the same rotating frame the globe itself is drawn in --
-    // so camera and globe co-rotate together and the planet looks
-    // rotationally locked to the view: the sun/terminator moves (lighting
-    // is computed independently), but the continents never do. This
-    // re-parents the camera into the true inertial (ICRF) frame every
-    // render frame -- the standard Cesium technique (from Cesium's own
-    // "ICRF" Sandcastle example) for making the globe visibly spin on its
-    // axis beneath the camera instead. It re-derives the camera's
-    // inertial-frame offset fresh from whatever position the mouse-drag/
-    // zoom/flyTo controls elsewhere in this file just set it to, every
-    // single frame, so it doesn't fight with any of them.
-    const lockCameraToInertialFrame = (currentScene, time) => {
-      if (currentScene.mode !== Cesium.SceneMode.SCENE3D) return;
-      const icrfToFixed = Cesium.Transforms.computeIcrfToFixedMatrix(time);
-      if (!Cesium.defined(icrfToFixed)) return; // EOP data not resolved for this instant yet -- skip a frame rather than throw
-      const offset = Cesium.Cartesian3.clone(viewer.camera.position);
-      const transform = Cesium.Matrix4.fromRotationTranslation(icrfToFixed);
-      viewer.camera.lookAtTransform(transform, offset);
-    };
-    viewer.scene.postUpdate.addEventListener(lockCameraToInertialFrame);
-
     viewer.screenSpaceEventHandler.setInputAction((click) => {
       const picked = viewer.scene.pick(click.position);
       if (Cesium.defined(picked) && picked.id?.radarId) {
@@ -362,7 +360,6 @@ export default function GlobeView({
       window.removeEventListener("mouseup", endDrag);
       viewer.camera.changed.removeEventListener(updateTooltipPosition);
       viewer.camera.changed.removeEventListener(syncSliderToCamera);
-      viewer.scene.postUpdate.removeEventListener(lockCameraToInertialFrame);
       viewer.destroy();
       viewerRef.current = null;
       corridorDataSourceRef.current = null;
@@ -377,33 +374,19 @@ export default function GlobeView({
 
     viewer.entities.removeAll();
     entityMapRef.current.clear();
-    positionSamplesRef.current.clear();
+    const orbitModels = new Map();
 
-    // Shared start time for every object's initial sample -- doesn't need
-    // to be exact (prevTime === nextTime just means "no interpolation yet,
-    // hold this point"), just a real JulianDate so interpolatedPositionAt's
-    // math doesn't see undefined.
     const referenceTime = simulationClock
       ? Cesium.JulianDate.clone(simulationClock.currentTime)
       : Cesium.JulianDate.now();
 
     objects.forEach((obj) => {
-      // Real position, straight from the object's own latitude/longitude/
-      // altitude (src/propagation/current_positions.py via liveData.js) --
-      // not an approximated orbit. Kept current as the simulated clock
-      // advances by the periodic refresh effect below, which updates this
-      // sample (not the entities directly) -- the CallbackProperty here
-      // interpolates smoothly between samples every render frame.
-      const initialPosition = cartesianFromObject(obj);
       const objectId = String(obj.object_id);
-      positionSamplesRef.current.set(objectId, {
-        prevTime: referenceTime,
-        prevPos: initialPosition,
-        nextTime: referenceTime,
-        nextPos: initialPosition,
-      });
+      const orbit = createOrbitalModel(obj, referenceTime);
+      orbitModels.set(objectId, orbit);
+
       const position = new Cesium.CallbackProperty(
-        (time) => interpolatedPositionAt(positionSamplesRef, objectId, time),
+        (time) => evaluateOrbitPosition(orbitModelsRef.current.get(objectId), time),
         false,
       );
 
@@ -456,77 +439,8 @@ export default function GlobeView({
         selectionRing.radarObject = obj;
       }
     });
-    // simulationClock is included for exhaustive-deps (referenceTime reads
-    // simulationClock.currentTime), but it's a module-level singleton
-    // (App.jsx) whose reference never changes -- listing it here doesn't
-    // actually cause this effect to re-run on every clock tick, only on a
-    // real objects/mode/selection change.
+    orbitModelsRef.current = orbitModels;
   }, [objects, mode, selectedObjectId, simulationClock]);
-
-  // ---- keep positions current with the simulated clock (real SGP4, not an
-  // approximated orbit) ----
-  useEffect(() => {
-    if (!simulationClock) return undefined;
-    let cancelled = false;
-
-    const refreshPositions = () => {
-      const at = Cesium.JulianDate.toDate(simulationClock.currentTime);
-      fetchCurrentPositions(at)
-        .then((response) => {
-          if (cancelled) return;
-          // The backend's own echoed `epoch` -- not "now" when this promise
-          // resolves -- is the instant these positions are actually valid
-          // for, so that's what the interpolation window's far end must be
-          // keyed to.
-          const sampleTime = Cesium.JulianDate.fromDate(new Date(response.epoch));
-          for (const p of response.positions ?? []) {
-            const sample = positionSamplesRef.current.get(String(p.object_id));
-            if (!sample) continue; // object no longer tracked (filtered out, list changed mid-flight)
-            // Shift next -> prev so interpolatedPositionAt eases from where
-            // the object last really was to where it really is now, instead
-            // of the CallbackProperty snapping straight to the new sample.
-            sample.prevTime = sample.nextTime;
-            sample.prevPos = sample.nextPos;
-            sample.nextTime = sampleTime;
-            sample.nextPos = Cesium.Cartesian3.fromDegrees(p.longitude_deg, p.latitude_deg, p.altitude_km * 1000);
-          }
-        })
-        .catch((err) => {
-          // Best-effort: a missed refresh just leaves the last interpolation
-          // window in place (holding at its far end) until the next tick
-          // succeeds, rather than falling back to any synthetic motion.
-          console.warn("[RADAR] GlobeView: failed to refresh real positions:", err.message);
-        });
-    };
-
-    refreshPositions();
-    const intervalId = setInterval(refreshPositions, REFRESH_INTERVAL_MS);
-
-    // A manual timeline action (TimeControls' step/date-jump buttons) moves
-    // simulationClock.currentTime by far more in one tick than continuous
-    // playback ever does, even at the fastest rate preset -- catch that and
-    // refresh right away instead of leaving objects interpolating toward a
-    // now-stale sample for up to REFRESH_INTERVAL_MS. onTick still fires
-    // every render frame even while paused/between manual jumps (Cesium
-    // calls Clock.tick() every frame regardless of shouldAnimate), so this
-    // notices a manual set within one frame of it happening.
-    const MANUAL_JUMP_THRESHOLD_SECONDS = 120;
-    let lastTickSeconds = Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000;
-    const detectManualJump = (clock) => {
-      const nowSeconds = Cesium.JulianDate.toDate(clock.currentTime).getTime() / 1000;
-      if (Math.abs(nowSeconds - lastTickSeconds) > MANUAL_JUMP_THRESHOLD_SECONDS) {
-        refreshPositions();
-      }
-      lastTickSeconds = nowSeconds;
-    };
-    simulationClock.onTick.addEventListener(detectManualJump);
-
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-      simulationClock.onTick.removeEventListener(detectManualJump);
-    };
-  }, [simulationClock]);
 
   // ---- draw the launch corridor overlay (Launch Planner mode) ----
   useEffect(() => {
@@ -618,14 +532,18 @@ export default function GlobeView({
     // supposed to reflect. Every flight target below has a known height, so
     // there's no reason to round-trip through the listener for it anyway.
     if (selectedObjectId === null || selectedObjectId === undefined) {
-      viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
+      viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.0 });
       setZoomPct(sliderPctFromHeight(STANDARD_GLOBE_HEIGHT_M));
       return;
     }
     const entity = entityMapRef.current.get(String(selectedObjectId));
     if (!entity) return;
-    const focusHeightM = 900000;
-    viewer.flyTo(entity, { duration: 1.1, offset: new Cesium.HeadingPitchRange(0, -0.5, focusHeightM) });
+    const focusHeightM = 1500000;
+    
+    viewer.flyTo(entity, {
+      duration: 1.0,
+      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-89), focusHeightM),
+    });
     setZoomPct(sliderPctFromHeight(focusHeightM));
   }, [selectedObjectId]);
 

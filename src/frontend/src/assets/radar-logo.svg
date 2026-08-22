@@ -14,6 +14,6 @@
   <g fill="#61d1d1" opacity=".85">
     <circle cx="220" cy="64" r="7"/><circle cx="235" cy="91" r="6"/><circle cx="238" cy="122" r="7"/><circle cx="220" cy="151" r="6"/><rect x="181" y="172" width="13" height="13" transform="rotate(25 187 178)"/>
   </g>
-  <text x="270" y="116" fill="#f4f0df" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="12">RADAR</text>
-  <text x="275" y="158" fill="#e7e1cf" font-family="Arial, sans-serif" font-size="20">Risk Assessment &amp; Debris Avoidance Routing</text>
+  <text x="260" y="120" fill="#f4f0df" font-family="Arial, sans-serif" font-size="90" font-weight="700" letter-spacing="14">RADAR</text>
+  <text x="265" y="165" fill="#e7e1cf" font-family="Arial, sans-serif" font-size="24">Risk Assessment &amp; Debris Avoidance Routing</text>
 </svg>

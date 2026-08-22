@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import logoUrl from "../assets/radar-logo.svg";
 
 const MODES = [
@@ -10,17 +10,77 @@ const MODES = [
 
 export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects, onSelectObject, timeControls }) {
   const [query, setQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const searchWrapRef = useRef(null);
+
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target)) {
+        setIsFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const matches = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
     return objects
-      .filter((object) => `${object.object_id} ${object.name} ${object.type}`.toLowerCase().includes(normalizedQuery))
+      .filter((obj) => obj.name && String(obj.name).toLowerCase().includes(q))
+      .sort((a, b) => {
+        const nameA = String(a.name).toLowerCase();
+        const nameB = String(b.name).toLowerCase();
+
+        // Exact match
+        const exactA = nameA === q;
+        const exactB = nameB === q;
+        if (exactA && !exactB) return -1;
+        if (!exactA && exactB) return 1;
+
+        // Starts with query
+        const startsA = nameA.startsWith(q);
+        const startsB = nameB.startsWith(q);
+        if (startsA && !startsB) return -1;
+        if (!startsA && startsB) return 1;
+
+        // Alphabetical
+        return nameA.localeCompare(nameB);
+      })
       .slice(0, 8);
   }, [objects, query]);
+
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [matches]);
 
   function selectResult(object) {
     onSelectObject?.(object.object_id);
     setQuery("");
+    setIsFocused(false);
+    setSelectedIndex(-1);
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === "Escape") {
+      setIsFocused(false);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((prev) => (matches.length > 0 ? (prev + 1) % matches.length : -1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex((prev) => (matches.length > 0 ? (prev - 1 + matches.length) % matches.length : -1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < matches.length) {
+        selectResult(matches[selectedIndex]);
+      } else if (matches.length > 0) {
+        selectResult(matches[0]);
+      }
+    }
   }
 
   return (
@@ -28,21 +88,32 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
       <header className="top-header hud-frame">
         <img className="radar-logo" src={logoUrl} alt="RADAR — Risk Assessment and Debris Avoidance Routing" />
         {timeControls}
-        <div className="search-wrap">
+        <div className="search-wrap" ref={searchWrapRef}>
           <label className="eyebrow search-label" htmlFor="object-search">Search objects</label>
           <input
             id="object-search"
             className="object-search mono"
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search satellite / debris ID"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setIsFocused(true);
+            }}
+            onFocus={() => setIsFocused(true)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search by object name..."
             autoComplete="off"
           />
-          {matches.length > 0 && (
+          {isFocused && matches.length > 0 && (
             <div className="search-results" role="listbox" aria-label="Matching orbital objects">
-              {matches.map((object) => (
-                <button className="search-result" type="button" key={object.object_id} onClick={() => selectResult(object)}>
+              {matches.map((object, idx) => (
+                <button
+                  className={`search-result ${idx === selectedIndex ? "active" : ""}`}
+                  type="button"
+                  key={object.object_id}
+                  onClick={() => selectResult(object)}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                >
                   <span><strong>{object.name}</strong><small className="mono">ID // {object.object_id}</small></span>
                   <span className="search-risk">{object.risk_tier}</span>
                 </button>
@@ -67,10 +138,6 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
           );
         })}
       </nav>
-      <div className="system-status">
-        <span className={`status-dot risk-${overallRiskStatus === "elevated" ? "high" : overallRiskStatus}`} />
-        <span className="mono">SYSTEM: ACTIVE</span>
-      </div>
       </aside>
     </>
   );

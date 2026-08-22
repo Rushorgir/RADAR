@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 async def get_dashboard_summary(db: Session = Depends(get_db)):
     """Aggregated summary endpoints (KPIs, active alert counts, risk distributions)."""
     
-    total_tracked = crud.get_total_tracked_objects(db)
+    total_tracked = crud.get_tle_catalog_count(db)
     total_events = crud.get_conjunction_events_count(db)
     risk_dist = crud.get_risk_distribution(db)
     active_alerts = risk_dist.get("HIGH", 0)

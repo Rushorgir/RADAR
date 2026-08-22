@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -19,45 +21,43 @@ from src.backend.api.routes_tle import router as tle_router
 from src.backend.api.websocket import router as websocket_router
 from src.backend.db.connection import Base, engine
 
+# Keep a reference so the task isn't garbage-collected.
+_background_tasks: set[asyncio.Task] = set()
 
-async def run_pipeline_background():
+
+async def _run_pipeline_background():
     """Run the ingestion pipeline in the background after startup."""
     try:
-        # Give the server a few seconds to fully bind and start accepting requests
         await asyncio.sleep(5)
         logger.info("Starting automatic dataset ingestion pipeline...")
-        
-        # We run the pipeline as a subprocess to keep it decoupled and non-blocking
         process = await asyncio.create_subprocess_exec(
-            "python", "scripts/run_radar_pipeline.py", "--post-to-backend",
+            sys.executable, "scripts/run_radar_pipeline.py", "--post-to-backend",
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
-        
         stdout, stderr = await process.communicate()
-        
         if process.returncode == 0:
             logger.info("Automatic pipeline completed successfully.")
         else:
-            logger.error(f"Automatic pipeline failed with return code {process.returncode}")
-            logger.error(f"Stderr: {stderr.decode()}")
-            
+            logger.error(f"Pipeline failed (rc={process.returncode}): {stderr.decode()}")
     except Exception as e:
         logger.error(f"Failed to run pipeline in background: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info("RADAR Backend starting up...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created/verified.")
-    
-    # Spawn background task
-    asyncio.create_task(run_pipeline_background())
-    
+
+    if os.getenv("RADAR_AUTO_INGEST", "").lower() in ("1", "true", "yes"):
+        task = asyncio.create_task(_run_pipeline_background())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    else:
+        logger.info("Auto-ingest disabled (set RADAR_AUTO_INGEST=1 to enable).")
+
     yield
-    # Shutdown
     logger.info("RADAR Backend shutting down.")
 
 

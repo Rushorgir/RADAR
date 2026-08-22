@@ -1,7 +1,8 @@
 import { useState } from "react";
 
 const STEP_MS = 60 * 60 * 1000;
-const RATE_STEPS = [1, 2, 4, 8];
+const RATE_STEPS = [1, 600, 3600, 86400];
+const ALL_RATES = [-86400, -3600, -600, -1, 1, 600, 3600, 86400];
 
 function formatTime(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
@@ -47,31 +48,30 @@ function CalendarPopover({ date, onSelectDate }) {
 
 export default function TimeControls({ currentTime, playing, playbackRate, onTogglePlay, onSetRate, onStep, onSelectDate, rangeStart, rangeStop, onSeek }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
+  
   const rateMagnitude = Math.abs(playbackRate);
   const rateLabel = `${playbackRate < 0 ? "−" : "×"}${rateMagnitude}`;
 
   return (
-    <div className="time-controls" onMouseEnter={() => setCalendarOpen(true)} onMouseLeave={() => setCalendarOpen(false)}>
+    <div className="time-controls">
       <button type="button" className="time-jump-button" onClick={() => onStep(-STEP_MS)} aria-label="Step simulation one hour into the past" title="Step one hour backward">◀</button>
-      <button type="button" className="time-rate-button" onClick={() => onSetRate(-Math.max(1, rateMagnitude * 2))} aria-label="Run simulation backward faster" title="Fast reverse">◀◀</button>
+      <button type="button" className="time-rate-button" onClick={() => {
+        const idx = ALL_RATES.indexOf(playbackRate);
+        onSetRate(idx > -1 ? ALL_RATES[Math.max(idx - 1, 0)] : -1);
+      }} aria-label="Run simulation backward faster" title="Fast reverse">◀◀</button>
       <button type="button" className="time-play-button" onClick={onTogglePlay} aria-label={playing ? "Pause simulation" : "Play simulation"} title={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
-      <button type="button" className="time-rate-button" onClick={() => onSetRate(Math.max(1, rateMagnitude * 2))} aria-label="Run simulation forward faster" title="Fast forward">▶▶</button>
+      <button type="button" className="time-rate-button" onClick={() => {
+        const idx = ALL_RATES.indexOf(playbackRate);
+        onSetRate(idx > -1 ? ALL_RATES[Math.min(idx + 1, ALL_RATES.length - 1)] : 1);
+      }} aria-label="Run simulation forward faster" title="Fast forward">▶▶</button>
       <button type="button" className="time-jump-button" onClick={() => onStep(STEP_MS)} aria-label="Step simulation one hour into the future" title="Step one hour forward">▶</button>
-      <div className="time-readout">
+      <div className="time-readout" onMouseEnter={() => setCalendarOpen(true)} onMouseLeave={() => setCalendarOpen(false)}>
         <strong className="mono">{formatTime(currentTime)}</strong>
         <span className="eyebrow">{formatDate(currentTime)} // {rateLabel} SIM</span>
       </div>
-      <input
-        className="time-scrubber"
-        type="range"
-        min={rangeStart.getTime()}
-        max={rangeStop.getTime()}
-        value={Math.min(rangeStop.getTime(), Math.max(rangeStart.getTime(), currentTime.getTime()))}
-        onChange={(event) => onSeek(new Date(Number(event.target.value)))}
-        aria-label="Scrub simulation time"
-      />
       {calendarOpen && <CalendarPopover date={currentTime} onSelectDate={onSelectDate} />}
       <div className="time-rate-presets" aria-label="Playback rate presets">
+        <span className="eyebrow" style={{ marginRight: 12 }}>Simulation Speed</span>
         {RATE_STEPS.map((rate) => <button type="button" className={rateMagnitude === rate && playbackRate > 0 ? "rate-preset active" : "rate-preset"} key={rate} onClick={() => onSetRate(rate)}>{rate}×</button>)}
       </div>
     </div>

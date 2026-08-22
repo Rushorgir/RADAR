@@ -24,19 +24,15 @@ RADAR is a modular Space Situational Awareness (SSA) system that:
 | Coordinate transforms | ✅ Working | TEME ↔ ECI ↔ ECEF ↔ RIC, astropy-backed |
 | Conjunction screening (coarse + fine filter) | ✅ Working | k-d tree fine filter, TCA refinement |
 | Probability of Collision (Foster 2D + Monte Carlo) | ✅ Working | Auto-selects method per encounter |
-| **Full AI-1 → AI-2 pipeline, end-to-end** | ✅ **Verified** | Live data, 800 objects/72h: **~5.7s total**, 69 conjunction events found |
-| ML risk ranking (LightGBM + SHAP) | ⏳ Not started | — |
-| Maneuver advisory | ⏳ Not started | — |
-| Backend API | ⏳ Not started | — |
-| Frontend / Cesium dashboard | ⏳ Not started | — |
+| **Full AI-1 → AI-2 pipeline, end-to-end** | ✅ **Verified** | Live data, 800 objects/72h: **~5.7s total** |
+| ML risk ranking (LightGBM + SHAP) | ✅ Working | Trained on ESA Kelvins data, SHAP explainability |
+| Maneuver advisory | ✅ Working | Closed-form Δv via Hill's equations |
+| Backend API (FastAPI) | ✅ Working | REST + WebSocket, SQLite/PostgreSQL |
+| Frontend / Cesium dashboard | ✅ Working | 3D globe, real SGP4 positions, risk panels |
+| Re-entry watch | ✅ Working | Orbital decay risk tiers, live from TLEs |
+| Launch corridor safety | ✅ Working | Ascent corridor vs. tracked catalog |
 
-**131 automated tests passing** (98 ingestion/propagation/coordinate-transform +
-33 conjunction/Pc + 1 cross-module integration test). See
-[AI1_IMPLEMENTATION_NOTES.md](AI1_IMPLEMENTATION_NOTES.md) for the AI-1 side
-in detail (including a real performance investigation — an early full-scale
-run took 5+ minutes before optimization, verified numbers throughout) and
-[TEST_SUITE_MOCK_BUG_FIX.md](TEST_SUITE_MOCK_BUG_FIX.md) for a cross-team
-test-infrastructure bug that was found and fixed while integrating.
+Automated tests are organized in `tests/` — run with `python -m pytest tests/ -v`.
 
 ---
 

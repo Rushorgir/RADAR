@@ -50,12 +50,19 @@ export default function App() {
     // faster the simulated clock runs (more visually-distinct seconds
     // passing, same 60 renders/sec either way). TimeControls only ever
     // displays whole seconds, so only re-render when the displayed second
-    // actually changes -- typically ~1/sec at real-time speed instead of 60.
+    // actually changes, and debounce by real wall-clock time so that at
+    // fast multipliers (e.g. 3600x) we don't trigger 60 React updates per second.
+    let lastRealTime = performance.now();
     let lastDisplayedSecond = Math.floor(Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000);
     const syncTime = (clock) => {
+      const now = performance.now();
+      if (now - lastRealTime < 200) return; // at most 5 renders per real second
+      
       const date = Cesium.JulianDate.toDate(clock.currentTime);
       const displayedSecond = Math.floor(date.getTime() / 1000);
       if (displayedSecond === lastDisplayedSecond) return;
+      
+      lastRealTime = now;
       lastDisplayedSecond = displayedSecond;
       setCurrentTime(date);
     };
@@ -118,7 +125,6 @@ export default function App() {
   }
 
   function selectObject(objectId) {
-    setActiveFilters([]);
     setSelectedObjectId(objectId);
   }
 

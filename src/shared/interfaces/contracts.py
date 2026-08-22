@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator
@@ -63,7 +63,7 @@ class PropagatedState(BaseModel):
         ..., min_length=3, max_length=3,
         description="Velocity [vx, vy, vz] in ECI J2000 frame (km/s)"
     )
-    covariance_6x6: Optional[list[list[float]]] = Field(
+    covariance_6x6: list[list[float]] | None = Field(
         None,
         description="6×6 state covariance matrix (km, km/s units). None if unavailable."
     )
@@ -76,11 +76,11 @@ class PropagatedState(BaseModel):
         description="Cross-sectional area (m²)"
     )
     object_type: ObjectType = ObjectType.UNKNOWN
-    object_name: Optional[str] = None
+    object_name: str | None = None
 
     @field_validator("covariance_6x6")
     @classmethod
-    def validate_covariance_shape(cls, v: Optional[list[list[float]]]) -> Optional[list[list[float]]]:
+    def validate_covariance_shape(cls, v: list[list[float]] | None) -> list[list[float]] | None:
         if v is not None:
             if len(v) != 6 or any(len(row) != 6 for row in v):
                 raise ValueError("Covariance must be 6×6")
@@ -92,7 +92,7 @@ class PropagatedState(BaseModel):
     def velocity_array(self) -> np.ndarray:
         return np.array(self.velocity_eci_km_s)
 
-    def covariance_array(self) -> Optional[np.ndarray]:
+    def covariance_array(self) -> np.ndarray | None:
         if self.covariance_6x6 is None:
             return None
         return np.array(self.covariance_6x6)
@@ -129,26 +129,26 @@ class ConjunctionEvent(BaseModel):
     relative_velocity_km_s: float = Field(..., ge=0, description="Relative velocity magnitude (km/s)")
 
     # Encounter frame data
-    relative_position_enc: Optional[list[float]] = Field(
+    relative_position_enc: list[float] | None = Field(
         None, description="Relative position in encounter frame [B·R, B·T] (km)"
     )
-    combined_covariance_enc_2x2: Optional[list[list[float]]] = Field(
+    combined_covariance_enc_2x2: list[list[float]] | None = Field(
         None, description="Combined 2×2 encounter-plane covariance (km²)"
     )
 
     # Pc result
     pc: float = Field(..., ge=0, le=1, description="Probability of Collision")
     pc_method: PcMethod = PcMethod.FOSTER_2D
-    pc_confidence_lower: Optional[float] = Field(None, description="MC lower confidence bound")
-    pc_confidence_upper: Optional[float] = Field(None, description="MC upper confidence bound")
+    pc_confidence_lower: float | None = Field(None, description="MC lower confidence bound")
+    pc_confidence_upper: float | None = Field(None, description="MC upper confidence bound")
 
     # Metadata
     combined_hard_body_radius_km: float = Field(0.015, ge=0)
     primary_object_type: ObjectType = ObjectType.UNKNOWN
     secondary_object_type: ObjectType = ObjectType.UNKNOWN
-    primary_cross_section_area_m2: Optional[float] = Field(None, ge=0, description="Primary object cross-sectional area (m²)")
-    secondary_cross_section_area_m2: Optional[float] = Field(None, ge=0, description="Secondary object cross-sectional area (m²)")
-    orbital_regime: Optional[OrbitalRegime] = Field(None, description="Encounter orbital regime")
+    primary_cross_section_area_m2: float | None = Field(None, ge=0, description="Primary object cross-sectional area (m²)")
+    secondary_cross_section_area_m2: float | None = Field(None, ge=0, description="Secondary object cross-sectional area (m²)")
+    orbital_regime: OrbitalRegime | None = Field(None, description="Encounter orbital regime")
     validity_flags: ValidityFlags = Field(default_factory=ValidityFlags)
     # timezone.utc, not the naive datetime.utcnow() -- tca (above) is always
     # tz-aware (set from an aware propagation epoch grid), and AI-3's
@@ -171,9 +171,9 @@ class ManeuverAdvisory(BaseModel):
     delta_v_m_s: float = Field(..., ge=0, description="Required delta-v magnitude (m/s)")
     burn_direction: str = Field(..., description="ALONG_TRACK | RADIAL | CROSS_TRACK")
     new_miss_distance_km: float = Field(..., ge=0)
-    risk_reduction_factor: Optional[float] = None
-    fuel_cost_estimate_kg: Optional[float] = None
-    confidence_limitations: Optional[str] = "Decision support only. Not an autonomous command."
+    risk_reduction_factor: float | None = None
+    fuel_cost_estimate_kg: float | None = None
+    confidence_limitations: str | None = "Decision support only. Not an autonomous command."
 
 class RiskScoredEvent(BaseModel):
     """Output from AI-3 (Udarsh): Conjunction event enriched with ML risk score and metadata."""
@@ -191,8 +191,8 @@ class RiskScoredEvent(BaseModel):
     
     shap_top_features: list[SHAPFeature] = Field(default_factory=list)
     
-    primary_cross_section_area_m2: Optional[float] = None
-    secondary_cross_section_area_m2: Optional[float] = None
-    orbital_regime: Optional[OrbitalRegime] = None
-    
-    maneuver_advisory: Optional[ManeuverAdvisory] = None
+    primary_cross_section_area_m2: float | None = None
+    secondary_cross_section_area_m2: float | None = None
+    orbital_regime: OrbitalRegime | None = None
+
+    maneuver_advisory: ManeuverAdvisory | None = None
