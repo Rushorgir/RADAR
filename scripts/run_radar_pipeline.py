@@ -30,6 +30,7 @@ from loguru import logger
 from src.conjunction.pipeline import ConjunctionPipeline
 from src.ingestion import TLECache, build_default_dataset
 from src.propagation import propagate_catalog_arrays
+from src.shared.config import get_propagation_config
 
 # AI-3's ML ranking lives behind the optional `ml` extras group (lightgbm,
 # shap, pandas, ...) -- not everyone running this script has it installed,
@@ -158,26 +159,35 @@ def post_to_backend(dataset, events, risk_scores):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--count", type=int, default=800, help="Target dataset size (500-1000 recommended)")
-    parser.add_argument("--hours", type=float, default=72.0, help="Propagation horizon in hours")
-    parser.add_argument("--step", type=float, default=60.0, help="Screening timestep in seconds")
+    parser.add_argument("--count", type=int, default=None, help="Target dataset size (default: 800, range 500-1000)")
+    parser.add_argument("--hours", type=float, default=None, help="Propagation horizon in hours (default: 72.0 from config/settings.toml)")
+    parser.add_argument("--step", type=float, default=None, help="Screening timestep in seconds (default: 60.0 from config/settings.toml)")
     parser.add_argument("--no-covariance", action="store_true", help="Skip covariance estimation")
     parser.add_argument("--no-ml-ranking", action="store_true", help="Skip AI-3's ML risk ranking step")
     parser.add_argument("--post-to-backend", action="store_true", help="Post results to the local backend API")
     args = parser.parse_args()
 
-    print(f"=== Step 1/6: Fetching + parsing TLE dataset (target {args.count} objects) ===")
+    # Load propagation config (hours and step); CLI args override config file
+    config = get_propagation_config(
+        screening_timestep_s=args.step,
+        propagation_horizon_h=args.hours,
+    )
+    
+    # Fallback for count if not specified
+    count = args.count if args.count is not None else 800
+
+    print(f"=== Step 1/6: Fetching + parsing TLE dataset (target {count} objects) ===")
     cache = TLECache()
     t0 = time.time()
-    dataset = build_default_dataset(cache=cache, target_count=args.count)
+    dataset = build_default_dataset(cache=cache, target_count=count)
     t1 = time.time()
     print(f"  -> {len(dataset)} objects assembled in {t1 - t0:.2f}s (cached under data/tle_cache/)")
 
-    print(f"\n=== Step 2/6: SGP4 batch propagation ({args.hours}h horizon, {args.step}s step) ===")
+    print(f"\n=== Step 2/6: SGP4 batch propagation ({config['propagation_horizon_h']}h horizon, {config['screening_timestep_s']}s step) ===")
     start = datetime.now(timezone.utc)
-    end = start + timedelta(hours=args.hours)
+    end = start + timedelta(hours=config['propagation_horizon_h'])
     t0 = time.time()
-    arrays = propagate_catalog_arrays(dataset, start, end, step_s=args.step, attach_covariance=not args.no_covariance)
+    arrays = propagate_catalog_arrays(dataset, start, end, step_s=config['screening_timestep_s'], attach_covariance=not args.no_covariance)
     t1 = time.time()
     print(f"  -> propagated {arrays.n_objects} objects x {arrays.n_steps} timesteps in {t1 - t0:.2f}s")
 
