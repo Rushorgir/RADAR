@@ -10,12 +10,27 @@ from src.propagation.covariance import (
     is_positive_definite,
 )
 from src.propagation.current_positions import ObjectPosition, current_positions
+from src.propagation.launch_corridor import (
+    LAUNCH_SITES,
+    AscentWaypoint,
+    CorridorConflict,
+    LaunchSafetyResult,
+    check_launch_corridor_safety,
+    generate_ascent_waypoints,
+)
 from src.propagation.models import (
     BatchPropagationResult,
     PropagatedState,
     PropagationError,
     SGP4ErrorCode,
     TrajectoryResult,
+)
+from src.propagation.reentry import (
+    ReentryPrediction,
+    ReentryRiskTier,
+    classify_perigee_risk,
+    estimate_days_to_reentry,
+    predict_reentry_watch,
 )
 from src.propagation.sgp4_engine import (
     SGP4PropagationFailure,
@@ -26,22 +41,33 @@ from src.propagation.sgp4_engine import (
 
 __all__ = [
     "DEFAULT_SIGMA_MODELS",
+    "LAUNCH_SITES",
+    "AscentWaypoint",
     "BatchPropagationResult",
     "CatalogPropagationArrays",
+    "CorridorConflict",
+    "LaunchSafetyResult",
     "ObjectPosition",
     "PropagatedState",
     "PropagationError",
     "RICSigmaModel",
+    "ReentryPrediction",
+    "ReentryRiskTier",
     "SGP4ErrorCode",
     "SGP4PropagationFailure",
     "SGP4Propagator",
     "TrajectoryResult",
     "build_epoch_grid",
     "build_jd_fr_grid",
+    "check_launch_corridor_safety",
+    "classify_perigee_risk",
     "current_positions",
     "estimate_covariance_6x6",
     "estimate_covariance_6x6_batch",
+    "estimate_days_to_reentry",
+    "generate_ascent_waypoints",
     "is_positive_definite",
+    "predict_reentry_watch",
     "propagate_catalog",
     "propagate_catalog_arrays",
     "summarize_covariance_health",

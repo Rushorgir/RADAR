@@ -5,6 +5,7 @@ import TopBar from "./components/TopBar";
 import StatCluster from "./components/StatCluster";
 import RiskPanel from "./components/RiskPanel";
 import LaunchPlanner from "./components/LaunchPlanner";
+import ReentryWatchPanel from "./components/ReentryWatchPanel";
 import ScanSweep from "./components/ScanSweep";
 import ObjectDetailPanel from "./components/ObjectDetailPanel";
 import PlanetDetailPanel from "./components/PlanetDetailPanel";
@@ -19,6 +20,7 @@ export default function App() {
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [selectedBodyId, setSelectedBodyId] = useState(null);
+  const [corridorWaypoints, setCorridorWaypoints] = useState(null);
 
   // Start with mock data so the UI renders immediately; swap in real data
   // from the backend if/when it loads. If the backend isn't running (e.g.
@@ -71,6 +73,7 @@ export default function App() {
           mode={mode}
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
+          corridorWaypoints={corridorWaypoints}
         />
       )}
 
@@ -96,7 +99,25 @@ export default function App() {
         />
       )}
 
-      {mode === "launch" && <LaunchPlanner />}
+      {mode === "launch" && (
+        <div
+          className="hud-frame scrollbar-thin"
+          style={{
+            position: "absolute",
+            top: 84,
+            right: 18,
+            bottom: 18,
+            width: 340,
+            zIndex: 20,
+            overflowY: "auto",
+            padding: 16,
+          }}
+        >
+          <LaunchPlanner onCorridorChange={setCorridorWaypoints} />
+          <div style={{ height: 24, borderTop: "1px solid var(--hairline)", marginBottom: 16 }} />
+          <ReentryWatchPanel />
+        </div>
+      )}
 
       {isSolar ? (
         <PlanetDetailPanel bodyId={selectedBodyId} onClose={() => setSelectedBodyId(null)} />

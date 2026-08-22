@@ -8,7 +8,9 @@ from loguru import logger
 from src.backend.api.routes_conjunction import router as conjunction_router
 from src.backend.api.routes_dashboard import router as dashboard_router
 from src.backend.api.routes_ingest import router as ingest_router
+from src.backend.api.routes_launch import router as launch_router
 from src.backend.api.routes_maneuver import router as maneuver_router
+from src.backend.api.routes_reentry import router as reentry_router
 from src.backend.api.routes_risk import router as risk_router
 from src.backend.api.routes_tle import router as tle_router
 from src.backend.api.websocket import router as websocket_router
@@ -49,6 +51,8 @@ app.include_router(risk_router)
 app.include_router(maneuver_router)
 app.include_router(dashboard_router)
 app.include_router(ingest_router)
+app.include_router(reentry_router)
+app.include_router(launch_router)
 app.include_router(websocket_router)
 
 @app.exception_handler(Exception)

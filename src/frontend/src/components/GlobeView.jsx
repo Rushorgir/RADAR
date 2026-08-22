@@ -67,9 +67,10 @@ function riskCssVarName(tier) {
   return "--risk-nominal";
 }
 
-export default function GlobeView({ objects, mode, selectedObjectId, onSelectObject }) {
+export default function GlobeView({ objects, mode, selectedObjectId, onSelectObject, corridorWaypoints }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
+  const corridorDataSourceRef = useRef(null);
   const entityMapRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
@@ -189,6 +190,14 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     viewer.scene.screenSpaceCameraController.minimumZoomDistance = MIN_CAMERA_HEIGHT_M;
     viewer.scene.screenSpaceCameraController.maximumZoomDistance = MAX_CAMERA_HEIGHT_M;
 
+    // A separate DataSource (not viewer.entities) for the launch corridor
+    // overlay: the object-sync effect below calls viewer.entities.removeAll()
+    // every time the tracked-object list changes, which would otherwise wipe
+    // the corridor out from under an unrelated re-render.
+    const corridorDataSource = new Cesium.CustomDataSource("launch-corridor");
+    viewer.dataSources.add(corridorDataSource);
+    corridorDataSourceRef.current = corridorDataSource;
+
     viewerRef.current = viewer;
     return () => {
       destroyed = true;
@@ -197,6 +206,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
       viewer.camera.changed.removeEventListener(syncSliderToCamera);
       viewer.destroy();
       viewerRef.current = null;
+      corridorDataSourceRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -244,6 +254,84 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
       entityMapRef.current.set(String(obj.object_id), entity);
     });
   }, [objects, mode]);
+
+  // ---- draw the launch corridor overlay (Launch Planner mode) ----
+  useEffect(() => {
+    const dataSource = corridorDataSourceRef.current;
+    const viewer = viewerRef.current;
+    if (!dataSource) return;
+    dataSource.entities.removeAll();
+    if (!corridorWaypoints || corridorWaypoints.length === 0) return;
+
+    // Frame the corridor so generating a route actually shows it, rather
+    // than leaving the camera wherever it happened to be pointed. Looking
+    // straight down at the launch site (nadir) would foreshorten a mostly-
+    // vertical corridor down to a single point -- there's no horizontal
+    // extent to see from directly above. Instead, offset the camera south
+    // of the site and pitch it up at a shallow angle so the corridor's
+    // vertical extent actually reads as a line in screen space.
+    if (viewer) {
+      const launchSite = corridorWaypoints[0];
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(
+          launchSite.longitude_deg,
+          launchSite.latitude_deg - 6,
+          1200000
+        ),
+        orientation: {
+          heading: 0,
+          pitch: Cesium.Math.toRadians(-20),
+          roll: 0,
+        },
+        duration: 1.2,
+      });
+    }
+
+    const positions = corridorWaypoints.map((w) =>
+      Cesium.Cartesian3.fromDegrees(w.longitude_deg, w.latitude_deg, w.altitude_km * 1000)
+    );
+    const corridorColor = Cesium.Color.fromCssColorString(cssVar("--signal"));
+
+    dataSource.entities.add({
+      polyline: {
+        positions,
+        width: 3,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.25,
+          color: corridorColor,
+        }),
+        // Same reasoning as the object points above: always depth-test
+        // against the globe, don't render the far side of the corridor
+        // straight through the Earth.
+        depthFailMaterial: undefined,
+        clampToGround: false,
+      },
+    });
+
+    // Launch pad marker at the corridor's ground end.
+    dataSource.entities.add({
+      position: positions[0],
+      point: {
+        pixelSize: 10,
+        color: corridorColor,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 1.5,
+        disableDepthTestDistance: 0,
+      },
+    });
+
+    // Orbital-insertion marker at the corridor's far end.
+    dataSource.entities.add({
+      position: positions[positions.length - 1],
+      point: {
+        pixelSize: 8,
+        color: Cesium.Color.WHITE,
+        outlineColor: corridorColor,
+        outlineWidth: 2,
+        disableDepthTestDistance: 0,
+      },
+    });
+  }, [corridorWaypoints]);
 
   // ---- fly to selected object ----
   useEffect(() => {

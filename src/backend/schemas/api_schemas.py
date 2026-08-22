@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.shared.interfaces.contracts import (
     ManeuverAdvisory,
@@ -100,6 +100,61 @@ class DashboardSummaryResponse(BaseModel):
     active_high_risk_alerts: int
     risk_distribution: dict[str, int]
     recent_high_risk_events: list[ConjunctionEventResponse]
+
+
+class ReentryPredictionResponse(BaseModel):
+    """One tracked object's re-entry risk assessment (src/propagation/reentry.py)."""
+    object_id: str
+    name: str
+    object_type: str
+    perigee_altitude_km: float
+    apogee_altitude_km: float
+    risk_tier: str
+    estimated_days_to_reentry: float | None
+    sgp4_confirmed_decayed: bool
+
+
+class ReentryWatchResponse(BaseModel):
+    epoch: datetime
+    predictions: list[ReentryPredictionResponse]
+    objects_screened: int
+
+
+class LaunchSafetyRequest(BaseModel):
+    """POST body for a launch corridor safety check."""
+    launch_site: str | None = Field(None, description="A name from GET /api/launch/sites; overridden by explicit lat/lon if both are given")
+    launch_lat_deg: float | None = Field(None, ge=-90, le=90)
+    launch_lon_deg: float | None = Field(None, ge=-180, le=180)
+    target_altitude_km: float = Field(..., gt=0, le=2000)
+    launch_time: datetime | None = Field(None, description="Defaults to now")
+
+
+class AscentWaypointResponse(BaseModel):
+    elapsed_s: float
+    latitude_deg: float
+    longitude_deg: float
+    altitude_km: float
+
+
+class CorridorConflictResponse(BaseModel):
+    object_id: str
+    object_name: str
+    waypoint_elapsed_s: float
+    distance_km: float
+
+
+class LaunchSafetyResponse(BaseModel):
+    safe: bool
+    waypoints: list[AscentWaypointResponse]
+    conflicts: list[CorridorConflictResponse]
+    objects_checked: int
+    safety_radius_km: float
+
+
+class LaunchSiteResponse(BaseModel):
+    name: str
+    latitude_deg: float
+    longitude_deg: float
 
 
 # --- Request Models for Ingestion ---
