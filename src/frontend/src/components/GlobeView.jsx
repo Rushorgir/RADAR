@@ -287,7 +287,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
         billboard: {
           image: getObjectIcon(obj),
           scale: animatedScale(obj, getBaseIconScale(obj)),
-          scaleByDistance: new Cesium.NearFarScalar(4000000, 1.15, 40000000, 0.55),
+          scaleByDistance: new Cesium.NearFarScalar(4000000, 1.25, 40000000, 0.72),
           translucencyByDistance: new Cesium.NearFarScalar(4000000, mode === "threat" && getVisualRiskTier(obj) === "low" ? 0.25 : 1, 40000000, 0.8),
           disableDepthTestDistance: 0,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
@@ -306,7 +306,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
             image: getWarningRing(obj),
             scale: animatedRingScale(obj),
             color: animatedRingColor(obj, meta.color),
-            scaleByDistance: new Cesium.NearFarScalar(4000000, 1.15, 40000000, 0.5),
+            scaleByDistance: new Cesium.NearFarScalar(4000000, 1.2, 40000000, 0.65),
             disableDepthTestDistance: 0,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
           },
@@ -321,7 +321,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
           position,
           billboard: {
             image: getSelectionRing(obj),
-            scale: 0.7,
+            scale: 0.9,
             color: Cesium.Color.fromCssColorString(meta.color).withAlpha(0.9),
             disableDepthTestDistance: 0,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,

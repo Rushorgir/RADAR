@@ -90,11 +90,11 @@ export function getWarningRing(object) {
 
 export function getBaseIconScale(object) {
   const tier = getVisualRiskTier(object);
-  if (tier === "satellite") return 0.34;
-  if (tier === "critical") return 0.34;
-  if (tier === "high") return 0.29;
-  if (tier === "medium") return 0.23;
-  return 0.16;
+  if (tier === "satellite") return 0.52;
+  if (tier === "critical") return 0.52;
+  if (tier === "high") return 0.44;
+  if (tier === "medium") return 0.36;
+  return 0.27;
 }
 
 export function isAnimatedRisk(object) {
