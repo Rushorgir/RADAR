@@ -433,12 +433,12 @@ export default function GlobeView({
         selectionRing.radarObject = obj;
       }
     });
-    // simulationClock is intentionally excluded: referenceTime only needs
-    // its value at the moment the entity list is (re)built (an arbitrary
-    // "no interpolation yet" starting point), not a reason to rebuild every
-    // one of the 1500+ entities on every clock tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objects, mode, selectedObjectId]);
+    // simulationClock is included for exhaustive-deps (referenceTime reads
+    // simulationClock.currentTime), but it's a module-level singleton
+    // (App.jsx) whose reference never changes -- listing it here doesn't
+    // actually cause this effect to re-run on every clock tick, only on a
+    // real objects/mode/selection change.
+  }, [objects, mode, selectedObjectId, simulationClock]);
 
   // ---- keep positions current with the simulated clock (real SGP4, not an
   // approximated orbit) ----

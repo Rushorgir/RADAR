@@ -73,6 +73,7 @@
 .time-readout { min-width: 172px; padding: 0 8px; text-align: center; }
 .time-readout strong { display: block; color: var(--text-primary); font-size: 15px; letter-spacing: .08em; line-height: 1.2; }
 .time-readout .eyebrow { display: block; margin-top: 3px; font-size: 8px; white-space: nowrap; }
+.time-scrubber { width: 92px; accent-color: var(--signal); cursor: pointer; }
 .time-jump-button, .time-rate-button, .time-play-button, .rate-preset { color: var(--text-secondary); background: transparent; border: 1px solid var(--hairline-strong); font: 10px var(--font-mono); }
 .time-jump-button, .time-rate-button { width: 23px; height: 23px; padding: 0; }
 .time-play-button { width: 28px; height: 28px; padding: 0; color: var(--signal); border-color: var(--signal-line); font-size: 13px; }
@@ -247,6 +248,7 @@
   .top-header { gap: 12px; }
   .radar-logo { width: 170px; }
   .time-readout { min-width: 135px; }
+  .time-scrubber { width: 70px; }
   .time-rate-presets { display: none; }
   .legend-item { gap: 5px; }
   .risk-legend { gap: 12px; }
@@ -259,6 +261,7 @@
   .radar-logo { width: 112px; height: 40px; }
   .time-controls { position: absolute; top: 62px; left: 50%; width: max-content; transform: translateX(-50%); border: 1px solid var(--hairline); background: var(--panel); }
   .time-readout { min-width: 150px; }
+  .time-scrubber { width: 105px; }
   .header-status { display: none; }
   .search-wrap { width: auto; flex: 1; }
   .navigation-rail { top: 78px; left: 10px; right: 10px; bottom: auto; width: auto; padding: 10px; display: block; }
