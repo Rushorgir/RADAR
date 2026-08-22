@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import GlobeView from "./components/GlobeView";
+import SolarSystemView from "./components/SolarSystemView";
 import TopBar from "./components/TopBar";
 import StatCluster from "./components/StatCluster";
 import RiskPanel from "./components/RiskPanel";
 import LaunchPlanner from "./components/LaunchPlanner";
 import ScanSweep from "./components/ScanSweep";
 import ObjectDetailPanel from "./components/ObjectDetailPanel";
+import PlanetDetailPanel from "./components/PlanetDetailPanel";
 import RiskLegend from "./components/RiskLegend";
 import { mockObjects, mockRiskList, mockDashboardStats } from "./data/mockData";
 import { buildObjectDetail, normalizeId } from "./utils/objectDetails";
 import { loadLiveDashboardData } from "./utils/liveData";
 
 export default function App() {
-  const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch
+  const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch | solar
   const [showSweep, setShowSweep] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedBodyId, setSelectedBodyId] = useState(null);
 
   // Start with mock data so the UI renders immediately; swap in real data
   // from the backend if/when it loads. If the backend isn't running (e.g.
@@ -56,14 +59,20 @@ export default function App() {
     setMode(nextMode);
   }
 
+  const isSolar = mode === "solar";
+
   return (
     <div className="radar-shell">
-      <GlobeView
-        objects={objects}
-        mode={mode}
-        selectedObjectId={selectedObjectId}
-        onSelectObject={setSelectedObjectId}
-      />
+      {isSolar ? (
+        <SolarSystemView selectedBodyId={selectedBodyId} onSelectBody={setSelectedBodyId} />
+      ) : (
+        <GlobeView
+          objects={objects}
+          mode={mode}
+          selectedObjectId={selectedObjectId}
+          onSelectObject={setSelectedObjectId}
+        />
+      )}
 
       <TopBar
         mode={mode}
@@ -71,9 +80,11 @@ export default function App() {
         overallRiskStatus={dashboardStats.overall_risk_status}
       />
 
-      <div className="left-rail-label eyebrow">
-        SPACE DEBRIS INTELLIGENCE {isLive ? "// LIVE" : "// DEMO DATA"}
-      </div>
+      {!isSolar && (
+        <div className="left-rail-label eyebrow">
+          SPACE DEBRIS INTELLIGENCE {isLive ? "// LIVE" : "// DEMO DATA"}
+        </div>
+      )}
       {mode === "dashboard" && <StatCluster stats={dashboardStats} />}
 
       {mode === "threat" && (
@@ -87,8 +98,14 @@ export default function App() {
 
       {mode === "launch" && <LaunchPlanner />}
 
-      <ObjectDetailPanel object={objectDetail} onClose={() => setSelectedObjectId(null)} />
-      <RiskLegend />
+      {isSolar ? (
+        <PlanetDetailPanel bodyId={selectedBodyId} onClose={() => setSelectedBodyId(null)} />
+      ) : (
+        <>
+          <ObjectDetailPanel object={objectDetail} onClose={() => setSelectedObjectId(null)} />
+          <RiskLegend />
+        </>
+      )}
 
       {showSweep && <ScanSweep onComplete={() => setShowSweep(false)} />}
     </div>

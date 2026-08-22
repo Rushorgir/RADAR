@@ -129,7 +129,19 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
 
     viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#070a12");
     viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#05070c");
-    viewer.scene.globe.enableLighting = false;
+
+    // Real day/night terminator driven by the actual current solar position
+    // (the viewer's clock defaults to system time) -- a static fully-lit
+    // globe read as flat and generic; this gives the Earth actual shape and
+    // makes it obviously "live" rather than a rendered prop. The ocean
+    // normal map is one of Cesium's own bundled assets (no network fetch)
+    // and only matters once lighting is on -- it's what makes water catch a
+    // specular highlight from the sun instead of shading like flat land.
+    viewer.scene.globe.enableLighting = true;
+    viewer.scene.globe.dynamicAtmosphereLighting = true;
+    viewer.scene.globe.oceanNormalMapUrl = Cesium.buildModuleUrl(
+      "Assets/Textures/waterNormalsSmall.jpg"
+    );
     viewer.scene.skyAtmosphere.hueShift = -0.05;
     viewer.scene.skyAtmosphere.saturationShift = -0.35;
     viewer.scene.skyAtmosphere.brightnessShift = -0.3;
@@ -238,13 +250,22 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     const viewer = viewerRef.current;
     if (!viewer) return;
     viewer.camera.cancelFlight();
+    // Set zoomPct directly rather than waiting on the camera.changed listener
+    // to derive it back from the landed height -- that event doesn't reliably
+    // fire on every tick of a scripted flyTo (unlike organic scroll/drag
+    // zoom), so the slider could land stale/desynced from the camera it's
+    // supposed to reflect. Every flight target below has a known height, so
+    // there's no reason to round-trip through the listener for it anyway.
     if (selectedObjectId === null || selectedObjectId === undefined) {
       viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
+      setZoomPct(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
       return;
     }
     const entity = entityMapRef.current.get(String(selectedObjectId));
     if (!entity) return;
-    viewer.flyTo(entity, { duration: 1.1, offset: new Cesium.HeadingPitchRange(0, -0.5, 900000) });
+    const focusHeightM = 900000;
+    viewer.flyTo(entity, { duration: 1.1, offset: new Cesium.HeadingPitchRange(0, -0.5, focusHeightM) });
+    setZoomPct(sliderPctFromHeight(focusHeightM));
   }, [selectedObjectId]);
 
   const handleSliderChange = useCallback((event) => {
@@ -270,6 +291,18 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
       destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, heightFromSliderPct(pct)),
       duration: 0.35,
     });
+  }, []);
+
+  // Reset to the same centered whole-Earth framing the view opens on. Sets
+  // zoomPct directly instead of trusting camera.changed to derive it back
+  // from the landed height -- see the comment on the object-selection
+  // effect above for why.
+  const handleResetView = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.camera.cancelFlight();
+    viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
+    setZoomPct(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
   }, []);
 
   return (
@@ -320,6 +353,15 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
           onClick={() => handleSliderChange({ target: { value: Math.min(100, zoomPct + 12) } })}
         >
           +
+        </button>
+        <button
+          type="button"
+          className="globe-zoom-step globe-zoom-reset"
+          aria-label="Reset view"
+          title="Reset view"
+          onClick={handleResetView}
+        >
+          ⟲
         </button>
       </div>
     </div>
