@@ -31,14 +31,32 @@ CELESTRAK_GP_URL = "https://celestrak.org/NORAD/elements/gp.php"
 # payloads, debris, and rocket bodies in LEO for the ~500-1000 object propagation
 # target described in src/propagation/README.md. See
 # https://celestrak.org/NORAD/elements/index.php for the full catalog of groups.
+#
+# Deliberately NOT included as separate entries: starlink/oneweb/kuiper/qianfan/
+# science. Checked directly (fetch each group standalone and diff against a
+# fetch of "active" by object name) -- every object in those groups is already
+# present in "active" (they're all active payloads), and fetch_groups()
+# de-duplicates by NORAD ID across groups anyway, so adding them here wouldn't
+# grow the candidate pool by a single object, just repeat a network call for
+# data already being pulled in. "active" already carries Starlink (thousands),
+# OneWeb (651), Kuiper (391), Qianfan (262), and Hubble (via science's 48) into
+# the pool build_default_dataset shuffles and samples from.
 CELESTRAK_GROUPS = {
     "stations": "stations",                        # crewed/large LEO payloads (ISS, Tiangong, ...)
-    "active": "active",                             # all active payloads (large; filter to LEO)
+    "active": "active",                             # all active payloads (large; filter to LEO) -- includes every named megaconstellation
     "cosmos_2251_debris": "cosmos-2251-debris",     # 2009 Iridium-Cosmos collision debris
     "iridium_33_debris": "iridium-33-debris",       # 2009 Iridium-Cosmos collision debris
     "cosmos_1408_debris": "cosmos-1408-debris",     # 2021 Russian ASAT test debris
     "fengyun_1c_debris": "fengyun-1c-debris",       # 2007 Chinese ASAT test debris
+    "analyst": "analyst",                           # uncatalogued/unofficial fragments -- genuinely distinct from "active": these are real tracked objects Celestrak can't yet confidently identify, not more copies of known payloads
 }
+
+# Considered and rejected: GROUP=last-30-days (recently-launched objects, a
+# freshness source complementary to "active") returns a real 404 through
+# this API, not just an empty result -- it's listed on Celestrak's own
+# index page but isn't actually served via gp.php the way the other groups
+# are. Confirmed directly, not assumed; left out rather than eating 3 dead
+# retries (with backoff) on every single pipeline run.
 
 DEFAULT_TIMEOUT_S = 15.0
 DEFAULT_RETRIES = 3

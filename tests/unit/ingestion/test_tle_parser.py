@@ -99,6 +99,11 @@ class TestClassifyObjectType:
         ("SL-16 R/B", ObjectType.ROCKET_BODY),
         ("ARIANE 5 ROCKET BODY", ObjectType.ROCKET_BODY),
         ("", ObjectType.UNKNOWN),
+        # Celestrak's own literal placeholder name for its "analyst" group
+        # (uncatalogued fragments) -- not an empty string, so this used to
+        # fall through to the PAYLOAD default instead of UNKNOWN.
+        ("UNKNOWN", ObjectType.UNKNOWN),
+        ("unknown", ObjectType.UNKNOWN),
     ])
     def test_classification(self, name, expected):
         assert classify_object_type(name) == expected

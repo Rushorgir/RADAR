@@ -53,7 +53,13 @@ function stablePosition(seed) {
 }
 
 function objectTypeToGlobeType(objectType) {
-  return objectType === "DEBRIS" ? "debris" : "satellite";
+  // Anything that isn't a confirmed active payload reads as "debris" for
+  // this satellite-vs-debris visualization -- catches ROCKET_BODY and
+  // UNKNOWN (Celestrak's "analyst" group: real tracked fragments it can't
+  // yet confidently identify) the same way DEBRIS already was, rather than
+  // defaulting them to "satellite" just because they aren't literally
+  // tagged DEBRIS.
+  return objectType === "PAYLOAD" ? "satellite" : "debris";
 }
 
 /** Real TLE list -> mockObjects shape (src/data/mockData.js). */
@@ -111,7 +117,12 @@ export function conjunctionsToRiskList(events, nameByObjectId) {
 /** Real dashboard summary + TLE type counts -> mockDashboardStats shape. */
 export function buildDashboardStats(summary, tles) {
   const activeSatellites = tles.filter((t) => t.object_type === "PAYLOAD").length;
-  const trackedDebris = tles.filter((t) => t.object_type === "DEBRIS").length;
+  // Everything not a confirmed active payload -- DEBRIS, ROCKET_BODY, and
+  // UNKNOWN (Celestrak's "analyst" group of uncatalogued fragments) -- so
+  // this always sums with active_satellites back to the real total instead
+  // of silently undercounting whenever a non-DEBRIS, non-PAYLOAD type shows
+  // up in the catalog.
+  const trackedDebris = tles.length - activeSatellites;
   const highRisk = summary.risk_distribution?.HIGH ?? 0;
   return {
     active_satellites: activeSatellites,

@@ -74,12 +74,16 @@ _ROCKET_BODY_MARKERS = ("R/B", "ROCKET BODY")
 
 
 def classify_object_type(name: str) -> ObjectType:
-    upper = (name or "").upper()
+    upper = (name or "").upper().strip()
     if any(marker in upper for marker in _DEBRIS_MARKERS):
         return ObjectType.DEBRIS
     if any(marker in upper for marker in _ROCKET_BODY_MARKERS):
         return ObjectType.ROCKET_BODY
-    if upper.strip() == "":
+    # Celestrak's own literal placeholder for its "analyst" group (uncatalogued
+    # fragments Celestrak can't yet confidently identify) -- without this,
+    # "UNKNOWN" isn't empty, so it fell through to the PAYLOAD default below
+    # and every uncatalogued fragment got counted as an active satellite.
+    if upper == "" or upper == "UNKNOWN":
         return ObjectType.UNKNOWN
     return ObjectType.PAYLOAD
 
