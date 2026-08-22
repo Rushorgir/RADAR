@@ -1,0 +1,7 @@
+# LightGBM's plain-text model dumps are parsed by a strict, non-tolerant
+# C++ parser: a stray \r before each \n (which Windows checkouts add by
+# default via core.autocrlf) breaks its tokenizer and corrupts the parse --
+# observed as "Model format error, expect a tree here" and an eventual
+# native crash on load, not a catchable Python exception. Force LF so a
+# Windows checkout can't reintroduce this.
+src/ml/models/**/*.txt eol=lf

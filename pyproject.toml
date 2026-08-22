@@ -40,6 +40,8 @@ ml = [
     "shap>=0.43",
     "scikit-learn>=1.3",
     "pandas>=2.0",
+    "matplotlib>=3.7",  # src/ml/ranking/train.py imports this unconditionally
+    "python-dateutil>=2.8",  # src/ml/ranking/predictor.py
 ]
 dev = [
     "pytest>=7.4",
