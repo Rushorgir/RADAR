@@ -87,6 +87,35 @@ const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GL
 // physically correct in the first place.
 const REFRESH_INTERVAL_MS = 4000;
 
+function cartesianFromObject(obj) {
+  return Cesium.Cartesian3.fromDegrees(
+    Number(obj.longitude) || 0,
+    Number(obj.latitude) || 0,
+    (Number(obj.altitude_km) || 550) * 1000,
+  );
+}
+
+// Smoothly interpolates between the two most recent real (time, position)
+// samples fetched for an object, rather than snapping straight to each new
+// fetch. Real SGP4-propagated samples only arrive every REFRESH_INTERVAL_MS
+// of real time (re-propagating the whole catalog isn't cheap enough to do
+// every render frame) -- linearly interpolating the straight-line distance
+// between two real points that close together in time is indistinguishable
+// from the true curved arc at normal orbital speeds, and it replaces the
+// visible "teleport" every refresh that snapping directly to each new
+// sample produced -- a jump that gets more noticeable the faster the
+// simulated clock runs, since a higher multiplier means a bigger simulated
+// time gap (and therefore a bigger position jump) between refreshes.
+function interpolatedPositionAt(samplesRef, objectId, time) {
+  const sample = samplesRef.current.get(objectId);
+  if (!sample) return undefined;
+  const totalSeconds = Cesium.JulianDate.secondsDifference(sample.nextTime, sample.prevTime);
+  if (totalSeconds <= 0) return sample.nextPos;
+  const elapsedSeconds = Cesium.JulianDate.secondsDifference(time, sample.prevTime);
+  const t = Cesium.Math.clamp(elapsedSeconds / totalSeconds, 0, 1);
+  return Cesium.Cartesian3.lerp(sample.prevPos, sample.nextPos, t, new Cesium.Cartesian3());
+}
+
 function animationPhase(time, periodSeconds) {
   return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
 }
@@ -141,12 +170,13 @@ export default function GlobeView({
   const viewerRef = useRef(null);
   const corridorDataSourceRef = useRef(null);
   const entityMapRef = useRef(new Map());
-  // object_id -> every entity sharing that object's position (main
-  // billboard, plus its optional warningRing/selectionRing). entityMapRef
-  // above stays a single object_id -> billboard entity map (viewer.flyTo
-  // below needs one real Entity), so this is a separate ref rather than
-  // widening that one.
-  const positionEntitiesRef = useRef(new Map());
+  // object_id -> { prevTime, prevPos, nextTime, nextPos }, the two most
+  // recent real SGP4-propagated samples for that object. Every entity
+  // sharing that object's position (billboard, warningRing, selectionRing)
+  // reads from this same map via a shared CallbackProperty, so updating an
+  // entry here moves all of them at once -- the periodic refresh effect
+  // below only ever touches this map, never entities directly.
+  const positionSamplesRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
   const hoveredEntityRef = useRef(null);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
@@ -324,20 +354,35 @@ export default function GlobeView({
 
     viewer.entities.removeAll();
     entityMapRef.current.clear();
-    positionEntitiesRef.current.clear();
+    positionSamplesRef.current.clear();
+
+    // Shared start time for every object's initial sample -- doesn't need
+    // to be exact (prevTime === nextTime just means "no interpolation yet,
+    // hold this point"), just a real JulianDate so interpolatedPositionAt's
+    // math doesn't see undefined.
+    const referenceTime = simulationClock
+      ? Cesium.JulianDate.clone(simulationClock.currentTime)
+      : Cesium.JulianDate.now();
 
     objects.forEach((obj) => {
       // Real position, straight from the object's own latitude/longitude/
       // altitude (src/propagation/current_positions.py via liveData.js) --
-      // not an approximated orbit. It's kept current as the simulated
-      // clock advances by the periodic refresh effect below, which mutates
-      // these entities' .position in place rather than rebuilding them.
-      const position = Cesium.Cartesian3.fromDegrees(
-        Number(obj.longitude) || 0,
-        Number(obj.latitude) || 0,
-        (Number(obj.altitude_km) || 550) * 1000,
+      // not an approximated orbit. Kept current as the simulated clock
+      // advances by the periodic refresh effect below, which updates this
+      // sample (not the entities directly) -- the CallbackProperty here
+      // interpolates smoothly between samples every render frame.
+      const initialPosition = cartesianFromObject(obj);
+      const objectId = String(obj.object_id);
+      positionSamplesRef.current.set(objectId, {
+        prevTime: referenceTime,
+        prevPos: initialPosition,
+        nextTime: referenceTime,
+        nextPos: initialPosition,
+      });
+      const position = new Cesium.CallbackProperty(
+        (time) => interpolatedPositionAt(positionSamplesRef, objectId, time),
+        false,
       );
-      const sharedPositionEntities = [];
 
       const entity = viewer.entities.add({
         position,
@@ -353,7 +398,6 @@ export default function GlobeView({
       entity.radarId = obj.object_id;
       entity.radarObject = obj;
       entityMapRef.current.set(String(obj.object_id), entity);
-      sharedPositionEntities.push(entity);
 
       const tier = getVisualRiskTier(obj);
       const meta = getVisualMeta(obj);
@@ -372,7 +416,6 @@ export default function GlobeView({
         warningRing.radarWarningRing = true;
         warningRing.radarId = obj.object_id;
         warningRing.radarObject = obj;
-        sharedPositionEntities.push(warningRing);
       }
 
       if (String(obj.object_id) === String(selectedObjectId)) {
@@ -388,11 +431,13 @@ export default function GlobeView({
         });
         selectionRing.radarId = obj.object_id;
         selectionRing.radarObject = obj;
-        sharedPositionEntities.push(selectionRing);
       }
-
-      positionEntitiesRef.current.set(String(obj.object_id), sharedPositionEntities);
     });
+    // simulationClock is intentionally excluded: referenceTime only needs
+    // its value at the moment the entity list is (re)built (an arbitrary
+    // "no interpolation yet" starting point), not a reason to rebuild every
+    // one of the 1500+ entities on every clock tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objects, mode, selectedObjectId]);
 
   // ---- keep positions current with the simulated clock (real SGP4, not an
@@ -406,28 +451,57 @@ export default function GlobeView({
       fetchCurrentPositions(at)
         .then((response) => {
           if (cancelled) return;
+          // The backend's own echoed `epoch` -- not "now" when this promise
+          // resolves -- is the instant these positions are actually valid
+          // for, so that's what the interpolation window's far end must be
+          // keyed to.
+          const sampleTime = Cesium.JulianDate.fromDate(new Date(response.epoch));
           for (const p of response.positions ?? []) {
-            const entities = positionEntitiesRef.current.get(String(p.object_id));
-            if (!entities || entities.length === 0) continue;
-            const cartesian = Cesium.Cartesian3.fromDegrees(p.longitude_deg, p.latitude_deg, p.altitude_km * 1000);
-            for (const entity of entities) {
-              entity.position = cartesian;
-            }
+            const sample = positionSamplesRef.current.get(String(p.object_id));
+            if (!sample) continue; // object no longer tracked (filtered out, list changed mid-flight)
+            // Shift next -> prev so interpolatedPositionAt eases from where
+            // the object last really was to where it really is now, instead
+            // of the CallbackProperty snapping straight to the new sample.
+            sample.prevTime = sample.nextTime;
+            sample.prevPos = sample.nextPos;
+            sample.nextTime = sampleTime;
+            sample.nextPos = Cesium.Cartesian3.fromDegrees(p.longitude_deg, p.latitude_deg, p.altitude_km * 1000);
           }
         })
         .catch((err) => {
-          // Best-effort: a missed refresh just leaves objects at their last
-          // known real position until the next tick succeeds, rather than
-          // falling back to any synthetic motion.
+          // Best-effort: a missed refresh just leaves the last interpolation
+          // window in place (holding at its far end) until the next tick
+          // succeeds, rather than falling back to any synthetic motion.
           console.warn("[RADAR] GlobeView: failed to refresh real positions:", err.message);
         });
     };
 
     refreshPositions();
     const intervalId = setInterval(refreshPositions, REFRESH_INTERVAL_MS);
+
+    // A manual timeline action (TimeControls' step/date-jump buttons) moves
+    // simulationClock.currentTime by far more in one tick than continuous
+    // playback ever does, even at the fastest rate preset -- catch that and
+    // refresh right away instead of leaving objects interpolating toward a
+    // now-stale sample for up to REFRESH_INTERVAL_MS. onTick still fires
+    // every render frame even while paused/between manual jumps (Cesium
+    // calls Clock.tick() every frame regardless of shouldAnimate), so this
+    // notices a manual set within one frame of it happening.
+    const MANUAL_JUMP_THRESHOLD_SECONDS = 120;
+    let lastTickSeconds = Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000;
+    const detectManualJump = (clock) => {
+      const nowSeconds = Cesium.JulianDate.toDate(clock.currentTime).getTime() / 1000;
+      if (Math.abs(nowSeconds - lastTickSeconds) > MANUAL_JUMP_THRESHOLD_SECONDS) {
+        refreshPositions();
+      }
+      lastTickSeconds = nowSeconds;
+    };
+    simulationClock.onTick.addEventListener(detectManualJump);
+
     return () => {
       cancelled = true;
       clearInterval(intervalId);
+      simulationClock.onTick.removeEventListener(detectManualJump);
     };
   }, [simulationClock]);
 

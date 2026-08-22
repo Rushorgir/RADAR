@@ -42,7 +42,23 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
 
   useEffect(() => {
-    const syncTime = (clock) => setCurrentTime(Cesium.JulianDate.toDate(clock.currentTime));
+    // onTick fires on every render frame (~60/sec) while the globe's Cesium
+    // Viewer is running -- setCurrentTime unconditionally on every tick was
+    // forcing a full re-render of the entire dashboard tree (TopBar,
+    // StatCluster, RiskPanel, GlobeView, ...) 60 times a second, which is
+    // exactly the kind of thing that reads as "laggy," and gets worse the
+    // faster the simulated clock runs (more visually-distinct seconds
+    // passing, same 60 renders/sec either way). TimeControls only ever
+    // displays whole seconds, so only re-render when the displayed second
+    // actually changes -- typically ~1/sec at real-time speed instead of 60.
+    let lastDisplayedSecond = Math.floor(Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000);
+    const syncTime = (clock) => {
+      const date = Cesium.JulianDate.toDate(clock.currentTime);
+      const displayedSecond = Math.floor(date.getTime() / 1000);
+      if (displayedSecond === lastDisplayedSecond) return;
+      lastDisplayedSecond = displayedSecond;
+      setCurrentTime(date);
+    };
     simulationClock.onTick.addEventListener(syncTime);
     return () => simulationClock.onTick.removeEventListener(syncTime);
   }, []);
