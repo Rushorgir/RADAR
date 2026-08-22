@@ -164,6 +164,48 @@ worth documenting explicitly for whoever next touches this code path, and a
 reminder to always measure at target scale rather than assume a technique
 (threading, in this case) helps.
 
+### 3.1 A second optimization pass
+
+After the above, `propagate_catalog_arrays` on the full 800-object dataset
+was down to ~6s. Profiling that 6s phase-by-phase found two more things
+worth fixing, both real wins even though the workload was already
+"fast enough" by hackathon standards:
+
+1. **`hours_since_epoch` was still a nested Python loop.** Computing each
+   object's "hours since its own TLE epoch" at every timestep (needed by the
+   covariance error-growth model) was a per-object list comprehension over
+   `(datetime - datetime).total_seconds()` — ~3.46M individual datetime
+   subtractions across the catalog, comparable in cost to the SGP4
+   propagation itself. **Fix**: convert every epoch to a POSIX timestamp
+   once (`datetime.timestamp()`, one array of length `n_steps`, one array of
+   length `n_objects`), then get the whole `(n_objects, n_steps)` matrix via
+   one broadcast subtraction. Measured: **4.5s → 0.004s** for this step alone.
+
+2. **The rotation-matrix computation (the fix from item 1 in §3) was still
+   the single largest remaining cost (~2.4s)** — computing the *exact*
+   TEME→GCRS rotation at all 4,321 timesteps. Precession/nutation drifts at
+   ~1e-9 rad/s; measured directly (transform the same test vector with the
+   rotation from `t` vs. `t+30min` and diff the result): reusing one
+   rotation matrix across a 10-minute window introduces **3.6cm** of
+   position error, 30 minutes introduces **11cm** — utterly negligible next
+   to this system's own covariance model (tens to hundreds of meters of
+   1-sigma uncertainty). **Fix**: `teme_to_eci_rotation_matrices` now takes
+   a `max_spacing_s` parameter (default 300s / 5 minutes — a comfortably
+   safe margin, not a tight tolerance): it computes the exact rotation at
+   samples no more than that far apart in real time and has every timestep
+   reuse its nearest sample, instead of computing the exact rotation at
+   every single one. `max_spacing_s<=0` disables this and recovers the
+   original exact-every-epoch behavior (used by a dedicated test that checks
+   the decimated result stays within millimeters of the exact one).
+
+**Result of this second pass**, full 800-object/72h/60s/covariance-on run,
+3 consecutive trials: **3.12s, 3.27s, 3.73s** (down from ~6.08s after the
+first pass, ~4.2-4.9s mid-way through this one). Combined with §3's fixes,
+that's roughly **100x** faster than the original "didn't finish in 5
+minutes" baseline. 98 unit tests (93 + 5 new for the rotation-matrix
+decimation, including a numerical-accuracy check against the exact
+computation) all green.
+
 ---
 
 ## 4. Dataset assembly
@@ -194,21 +236,24 @@ existing cache instead of treating it as an outage.
 
 ## 5. Testing
 
-82 unit tests, all passing, across:
+98 unit tests, all passing, across:
 
 - `tests/unit/ingestion/` (39 tests) — checksum validation, exact field
   decoding against a real ISS TLE, epoch decoding, object-type classification,
   multi-record file parsing, cache TTL behavior, fetcher retry/fallback logic
   (network mocked — no live-network dependency in the test suite itself).
-- `tests/unit/propagation/` (29 tests) — SGP4 propagation sanity (LEO
+- `tests/unit/propagation/` (40 tests) — SGP4 propagation sanity (LEO
   altitude/speed ranges), SGP4 error-code handling (via a fake `Satrec`, since
   the real one is a read-only C extension), covariance growth/positive-
   definiteness, batch orchestration (object coverage, covariance attachment,
-  progress callback, epoch grid).
-- `tests/unit/shared/` (14 tests) — TEME/ECI/ECEF round-trips, geodetic
-  conversion sanity (equator/pole points), RIC rotation orthonormality, and
-  the RIC velocity transport-theorem term validated against finite-difference
-  two-body propagation.
+  progress callback, epoch grid), and the array-native fast path (shapes,
+  covariance health, and a direct numerical cross-check against the
+  Pydantic path to 1e-9).
+- `tests/unit/shared/` (19 tests) — TEME/ECI/ECEF round-trips, geodetic
+  conversion sanity (equator/pole points), RIC rotation orthonormality, the
+  RIC velocity transport-theorem term validated against finite-difference
+  two-body propagation, and the rotation-matrix decimation's accuracy
+  against the exact (non-decimated) computation.
 
 All of this runs against **real fetched Celestrak data** where practical
 (ISS TLE cross-checked: ~413-423 km altitude, ~7.5-7.9 km/s orbital speed —
@@ -219,7 +264,11 @@ matches reality), not just synthetic fixtures.
 ## 6. Git
 
 - Branch `feat/anas`, based on up-to-date `main`.
-- Commit `81b57c3`: full ingestion + propagation + shared/frames implementation
-  and test suite, pushed to `origin/feat/anas`.
-- The performance fix in §3 lands as a follow-up commit (see git log on this
-  branch for the exact hash).
+- `81b57c3` — full ingestion + propagation + shared/frames implementation and
+  initial test suite.
+- `2f5279f` — the §3 performance chase: shared rotation/jd-grid, batched
+  covariance, dropped threading, numpy-native `batch_arrays.py` fast path.
+- (§3.1's second optimization pass — vectorized `hours_since_epoch`,
+  decimated rotation matrices — lands as a further commit on this branch;
+  check `git log feat/anas` for the exact hash.)
+- All pushed to `origin/feat/anas`.

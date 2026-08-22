@@ -61,6 +61,7 @@ from src.shared.interfaces.contracts import PropagatedState
 def _build_trajectory(
     parsed_tle: ParsedTLE,
     epochs: list[datetime],
+    epoch_seconds: np.ndarray,
     pos_eci: np.ndarray,
     vel_eci: np.ndarray,
     errors: np.ndarray,
@@ -85,8 +86,10 @@ def _build_trajectory(
     if attach_covariance and np.any(ok_mask):
         # One vectorized call for every OK state of this object, instead of a
         # per-state call (see estimate_covariance_6x6_batch docstring for why
-        # that matters at catalog scale).
-        hours_since_epoch = np.array([(e - parsed_tle.epoch).total_seconds() / 3600.0 for e, ok in zip(epochs, ok_mask) if ok])
+        # that matters at catalog scale). `epoch_seconds` is computed once for
+        # the whole shared grid by the caller, not re-derived per object via a
+        # per-timestep datetime subtraction.
+        hours_since_epoch = (epoch_seconds[ok_mask] - parsed_tle.epoch.timestamp()) / 3600.0
         covariances = estimate_covariance_6x6_batch(pos_eci[ok_mask], vel_eci[ok_mask], hours_since_epoch, parsed_tle.object_type)
 
     ok_indices = np.flatnonzero(ok_mask)
@@ -140,6 +143,7 @@ def propagate_catalog(
     # teme_to_eci_rotation_matrices docstrings for why this matters at scale).
     jds, frs = build_jd_fr_grid(epochs)
     rotations = teme_to_eci_rotation_matrices(epochs)
+    epoch_seconds = np.array([e.timestamp() for e in epochs])
 
     trajectories: dict[str, TrajectoryResult] = {}
     for done, parsed_tle in enumerate(parsed_tles, start=1):
@@ -153,7 +157,7 @@ def propagate_catalog(
             if np.any(ok_mask):
                 pos_eci[ok_mask], vel_eci[ok_mask] = apply_rotation_batch(rotations[ok_mask], r_teme[ok_mask], v_teme[ok_mask])
 
-            trajectory = _build_trajectory(parsed_tle, epochs, pos_eci, vel_eci, errors, attach_covariance)
+            trajectory = _build_trajectory(parsed_tle, epochs, epoch_seconds, pos_eci, vel_eci, errors, attach_covariance)
         except Exception as exc:  # noqa: BLE001 - isolate one object's crash from the whole batch
             logger.error(f"[batch_propagator] object {parsed_tle.norad_id} raised unexpectedly: {exc}")
             trajectory = TrajectoryResult(
