@@ -32,6 +32,7 @@ class OrbitalRegime(str, Enum):
     MEO = "MEO"       # 2000–35786 km
     GEO = "GEO"       # ~35786 km
     HEO = "HEO"       # Highly elliptical
+    UNKNOWN = "UNKNOWN"
 
 
 class PcMethod(str, Enum):
@@ -145,6 +146,9 @@ class ConjunctionEvent(BaseModel):
     combined_hard_body_radius_km: float = Field(0.015, ge=0)
     primary_object_type: ObjectType = ObjectType.UNKNOWN
     secondary_object_type: ObjectType = ObjectType.UNKNOWN
+    primary_cross_section_area_m2: Optional[float] = Field(None, ge=0, description="Primary object cross-sectional area (m²)")
+    secondary_cross_section_area_m2: Optional[float] = Field(None, ge=0, description="Secondary object cross-sectional area (m²)")
+    orbital_regime: Optional[OrbitalRegime] = Field(None, description="Encounter orbital regime")
     validity_flags: ValidityFlags = Field(default_factory=ValidityFlags)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -162,13 +166,28 @@ class ManeuverAdvisory(BaseModel):
     delta_v_m_s: float = Field(..., ge=0, description="Required delta-v magnitude (m/s)")
     burn_direction: str = Field(..., description="ALONG_TRACK | RADIAL | CROSS_TRACK")
     new_miss_distance_km: float = Field(..., ge=0)
+    risk_reduction_factor: Optional[float] = None
     fuel_cost_estimate_kg: Optional[float] = None
-
+    confidence_limitations: Optional[str] = "Decision support only. Not an autonomous command."
 
 class RiskScoredEvent(BaseModel):
-    """Output from AI-3 (Udarsh): Conjunction event enriched with ML risk score."""
+    """Output from AI-3 (Udarsh): Conjunction event enriched with ML risk score and metadata."""
     event_id: str
+    primary_id: str
+    secondary_id: str
+    time_to_tca_days: float
+    miss_distance_km: float
+    relative_velocity_km_s: float
+    pc: float
+    
     ml_risk_score: float = Field(..., ge=0, le=1)
     risk_category: RiskCategory
+    risk_threshold_used: str
+    
     shap_top_features: list[SHAPFeature] = Field(default_factory=list)
+    
+    primary_cross_section_area_m2: Optional[float] = None
+    secondary_cross_section_area_m2: Optional[float] = None
+    orbital_regime: Optional[OrbitalRegime] = None
+    
     maneuver_advisory: Optional[ManeuverAdvisory] = None
