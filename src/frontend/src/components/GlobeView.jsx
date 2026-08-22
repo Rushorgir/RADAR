@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import * as Cesium from "cesium";
 
+const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, 22000000);
+
 // Resolve a CSS variable to a concrete color the Cesium canvas can use
 // (the canvas can't consume var(--x) directly, only the resolved value).
 function cssVar(name) {
@@ -17,6 +19,11 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const entityMapRef = useRef(new Map());
+  const onSelectObjectRef = useRef(onSelectObject);
+
+  useEffect(() => {
+    onSelectObjectRef.current = onSelectObject;
+  }, [onSelectObject]);
 
   // ---- one-time viewer setup ----
   useEffect(() => {
@@ -45,15 +52,15 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     viewer.scene.skyAtmosphere.brightnessShift = -0.3;
 
     viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(0, 10, 22000000),
+      destination: WHOLE_GLOBE_DESTINATION,
     });
 
     viewer.screenSpaceEventHandler.setInputAction((click) => {
       const picked = viewer.scene.pick(click.position);
       if (Cesium.defined(picked) && picked.id?.radarId) {
-        onSelectObject?.(picked.id.radarId);
+        onSelectObjectRef.current?.(picked.id.radarId);
       } else {
-        onSelectObject?.(null);
+        onSelectObjectRef.current?.(null);
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
@@ -101,15 +108,20 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
         },
       });
       entity.radarId = obj.object_id;
-      entityMapRef.current.set(obj.object_id, entity);
+      entityMapRef.current.set(String(obj.object_id), entity);
     });
   }, [objects, mode]);
 
   // ---- fly to selected object ----
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer || !selectedObjectId) return;
-    const entity = entityMapRef.current.get(selectedObjectId);
+    if (!viewer) return;
+    viewer.camera.cancelFlight();
+    if (selectedObjectId === null || selectedObjectId === undefined) {
+      viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
+      return;
+    }
+    const entity = entityMapRef.current.get(String(selectedObjectId));
     if (!entity) return;
     viewer.flyTo(entity, { duration: 1.1, offset: new Cesium.HeadingPitchRange(0, -0.5, 900000) });
   }, [selectedObjectId]);

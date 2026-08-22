@@ -19,6 +19,7 @@
   --risk-critical-dim: rgba(255, 92, 92, 0.14);
   --risk-elevated: #ffa94d;
   --risk-elevated-dim: rgba(255, 169, 77, 0.14);
+  --risk-medium: #f1cf62;
   --risk-nominal: #3fd6c6;
 
   --debris-dot: #4a5570;
