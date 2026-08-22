@@ -7,8 +7,9 @@ from loguru import logger
 from datetime import timedelta
 import numpy as np
 
-from src.shared.interfaces.contracts import PropagatedEpoch, ConjunctionEvent, PcMethod, ValidityFlags
+from src.shared.interfaces.contracts import ConjunctionEvent, PcMethod, ValidityFlags
 from src.shared.constants.physical import PC
+from src.propagation.batch_arrays import CatalogPropagationArrays
 from src.conjunction.screening.engine import ScreeningEngine
 from src.conjunction.screening.tca_refiner import refine_tca, interpolate_state_at_tca
 from src.conjunction.models.encounter import EncounterGeometry, extract_position_covariance
@@ -18,7 +19,7 @@ from src.conjunction.probability.engine import PcEngine, PcResult
 
 class ConjunctionPipeline:
     """
-    End-to-end pipeline: PropagatedEpochs -> ConjunctionEvents.
+    End-to-end pipeline: CatalogPropagationArrays -> ConjunctionEvents.
     """
     
     PC_COMPUTE_THRESHOLD_KM = 5.0    # Full Pc computation
@@ -28,20 +29,20 @@ class ConjunctionPipeline:
         self.screening_engine = ScreeningEngine()
         self.pc_engine = PcEngine()
         
-    def run(self, epoch_data: List[PropagatedEpoch]) -> List[ConjunctionEvent]:
+    def run(self, arrays: CatalogPropagationArrays) -> List[ConjunctionEvent]:
         logger.info("Starting Conjunction Pipeline.")
         
         # 1. & 2. Coarse and Fine Filters
-        raw_encounters = self.screening_engine.run(epoch_data)
+        raw_encounters = self.screening_engine.run(arrays)
         
         events = []
         for enc_data in raw_encounters:
-            primary_id = enc_data["primary_id"]
-            secondary_id = enc_data["secondary_id"]
+            idx1 = enc_data["primary_index"]
+            idx2 = enc_data["secondary_index"]
             flagged_times_s = enc_data["flagged_times_s"]
             flagged_distances_km = enc_data["flagged_distances_km"]
             
-            # 3. TCA Refinement (and deduplication happens inherently as we refine the global min)
+            # 3. TCA Refinement
             tca_s, miss_distance_km = refine_tca(flagged_times_s, flagged_distances_km)
             
             # 4. Two-tier Pc check
@@ -49,32 +50,46 @@ class ConjunctionPipeline:
                 continue  # Completely discard
                 
             # We need to interpolate the state at TCA
-            # First, extract the time series arrays
             base_epoch = enc_data["base_epoch"]
-            p_states = enc_data["primary_states"]
-            s_states = enc_data["secondary_states"]
             
-            p_times = np.array([(s.epoch - base_epoch).total_seconds() for s in p_states])
-            p_pos = np.array([s.position_array() for s in p_states])
-            p_vel = np.array([s.velocity_array() for s in p_states])
+            # Extract the time series arrays for these two objects from the arrays directly!
+            # Filter to valid steps only
+            p_ok = arrays.ok_mask[idx1, :]
+            s_ok = arrays.ok_mask[idx2, :]
             
-            s_times = np.array([(s.epoch - base_epoch).total_seconds() for s in s_states])
-            s_pos = np.array([s.position_array() for s in s_states])
-            s_vel = np.array([s.velocity_array() for s in s_states])
+            epoch_seconds = np.array([(ep - base_epoch).total_seconds() for ep in arrays.epochs])
             
-            pos1, vel1 = interpolate_state_at_tca(p_times, p_pos, p_vel, tca_s)
-            pos2, vel2 = interpolate_state_at_tca(s_times, s_pos, s_vel, tca_s)
+            p_times = epoch_seconds[p_ok]
+            p_pos = arrays.positions_eci_km[idx1, p_ok, :]
+            p_vel = arrays.velocities_eci_km_s[idx1, p_ok, :]
+            
+            s_times = epoch_seconds[s_ok]
+            s_pos = arrays.positions_eci_km[idx2, s_ok, :]
+            s_vel = arrays.velocities_eci_km_s[idx2, s_ok, :]
+            
+            # Slice a 5-point window around TCA to make CubicSpline interpolation instant
+            p_c_idx = np.argmin(np.abs(p_times - tca_s))
+            s_c_idx = np.argmin(np.abs(s_times - tca_s))
+            p_slice = slice(max(0, p_c_idx - 2), p_c_idx + 3)
+            s_slice = slice(max(0, s_c_idx - 2), s_c_idx + 3)
+            
+            pos1, vel1 = interpolate_state_at_tca(
+                p_times[p_slice], p_pos[p_slice], p_vel[p_slice], tca_s
+            )
+            pos2, vel2 = interpolate_state_at_tca(
+                s_times[s_slice], s_pos[s_slice], s_vel[s_slice], tca_s
+            )
             
             r_rel = pos2 - pos1
             v_rel = vel2 - vel1
             v_rel_norm = float(np.linalg.norm(v_rel))
             
-            # Find closest PropagatedState to use as base for covariance and metadata
-            # We assume covariance doesn't change drastically within the small TCA refinement window
-            idx_p = np.argmin(np.abs(p_times - tca_s))
-            idx_s = np.argmin(np.abs(s_times - tca_s))
-            p_closest = p_states[idx_p]
-            s_closest = s_states[idx_s]
+            # Find closest timestep to use as base for covariance and metadata
+            step_idx = np.argmin(np.abs(epoch_seconds - tca_s))
+            
+            # Use the escape hatch to build the actual objects for the encounter frame
+            p_closest = arrays.to_propagated_state(idx1, step_idx)
+            s_closest = arrays.to_propagated_state(idx2, step_idx)
             
             # Extract position covariances
             cov1 = extract_position_covariance(p_closest.covariance_array())
