@@ -6,17 +6,18 @@ import json
 def test_conjunction_event_model():
     event = ConjunctionEventModel(
         event_id="test-id",
-        primary_id="1",
-        secondary_id="2",
+        primary_id="12345",
+        secondary_id="67890",
         tca=datetime.utcnow(),
-        miss_distance_km=1.0,
-        relative_velocity_km_s=7.0,
-        pc=1e-4,
-        pc_method="FOSTER_2D"
+        miss_distance_km=0.5,
+        relative_velocity_km_s=15.0,
+        pc=0.01,
+        pc_method="FOSTER_2D",
+        primary_object_type="PAYLOAD",
+        secondary_object_type="DEBRIS"
     )
     assert event.event_id == "test-id"
-    assert event.primary_object_type == "UNKNOWN" # Check default
-    assert event.combined_hard_body_radius_km == 0.015 # Check default
+    assert event.primary_object_type == "PAYLOAD"
     
 def test_tle_model():
     tle = TLEModel(

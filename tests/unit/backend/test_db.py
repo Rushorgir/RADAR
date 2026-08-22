@@ -5,7 +5,8 @@ from src.backend.db.connection import Base
 from src.backend.db.models import ConjunctionEventModel
 
 # Setup in-memory sqlite db for tests
-engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+from sqlalchemy.pool import StaticPool
+engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
@@ -16,14 +17,17 @@ def test_db_session():
 
 def test_create_event():
     db = TestingSessionLocal()
+    from datetime import datetime
     event = ConjunctionEventModel(
         primary_id="SAT1", 
         secondary_id="SAT2", 
-        tca="2024-01-01 00:00:00", 
+        tca=datetime.utcnow(), 
         miss_distance_km=1.5, 
         relative_velocity_km_s=7.5,
         pc=0.001,
-        pc_method="FOSTER_2D"
+        pc_method="FOSTER_2D",
+        primary_object_type="PAYLOAD",
+        secondary_object_type="DEBRIS"
     )
     db.add(event)
     db.commit()

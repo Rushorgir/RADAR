@@ -21,6 +21,7 @@ async def ingest_conjunction(event_data: ConjunctionEventCreate, db: Session = D
     """Receives a ConjunctionEvent from AI-2, persists it, broadcasts via WebSocket."""
     # Convert Pydantic model to dict, ensuring enums are strings
     data_dict = json.loads(event_data.model_dump_json())
+    data_dict["tca"] = event_data.tca  # Restore actual datetime object for SQLAlchemy
     
     event = crud.get_conjunction_event_by_id(db, event_data.event_id)
     if event:
@@ -69,6 +70,7 @@ async def ingest_risk_score(risk_data: RiskScoreUpdate, db: Session = Depends(ge
 async def ingest_tle(tle_data: TLECreate, db: Session = Depends(get_db)):
     """Receives TLE data from AI-1, persists it."""
     data_dict = json.loads(tle_data.model_dump_json())
+    data_dict["epoch"] = tle_data.epoch
     db_tle = crud.create_tle(db, data_dict)
     logger.info(f"Ingested TLE for object {db_tle.object_id}")
     return db_tle

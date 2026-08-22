@@ -1,13 +1,13 @@
 import sys
 from unittest.mock import MagicMock
 
-# Mock astropy and sgp4 to avoid C-extension deadlocks on Python 3.14 on macOS
-sys.modules['astropy'] = MagicMock()
-sys.modules['astropy.time'] = MagicMock()
-sys.modules['astropy.coordinates'] = MagicMock()
-sys.modules['astropy.units'] = MagicMock()
-sys.modules['erfa'] = MagicMock()
-sys.modules['sgp4'] = MagicMock()
-sys.modules['sgp4.api'] = MagicMock()
-sys.modules['sgp4.ext'] = MagicMock()
-sys.modules['sgp4.earth_gravity'] = MagicMock()
+import importlib
+
+for _mod_name in (
+    "astropy", "astropy.time", "astropy.coordinates", "astropy.units",
+    "erfa", "sgp4", "sgp4.api", "sgp4.ext", "sgp4.earth_gravity",
+):
+    try:
+        importlib.import_module(_mod_name)
+    except Exception:  # noqa: BLE001
+        sys.modules[_mod_name] = MagicMock()
