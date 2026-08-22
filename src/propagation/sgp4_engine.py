@@ -83,6 +83,11 @@ class SGP4Propagator:
     def object_id(self) -> str:
         return str(self.parsed_tle.norad_id)
 
+    @property
+    def satrec(self) -> Satrec:
+        """Access the underlying Satrec object for advanced use (e.g., skyfield cross-validation)."""
+        return self._satrec
+
     def propagate_at(self, epoch: datetime) -> PropagatedState:
         """Propagate to a single epoch. Raises SGP4PropagationFailure on SGP4 error."""
         jd, fr = _to_jday(epoch)
