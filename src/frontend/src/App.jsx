@@ -48,6 +48,7 @@ export default function App() {
           riskList={mockRiskList}
           selectedEventId={selectedEventId}
           onSelectEvent={setSelectedEventId}
+          onSelectObject={setSelectedObjectId}
         />
       )}
 

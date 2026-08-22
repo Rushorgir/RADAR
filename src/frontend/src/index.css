@@ -85,6 +85,9 @@
   border-bottom: 1px solid var(--hairline);
 }
 .metric-row strong { font-size: 22px; color: var(--text-primary); }
+.object-pair { display: inline-flex; align-items: baseline; gap: 3px; }
+.object-link { padding: 0; color: inherit; background: transparent; border: 0; font: inherit; cursor: pointer; }
+.object-link:hover, .object-link:focus-visible { color: var(--signal); text-decoration: underline; outline: none; }
 
 .object-detail {
   position: absolute;

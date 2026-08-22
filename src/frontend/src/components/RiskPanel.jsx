@@ -30,7 +30,7 @@ function FeatureBar({ feature, contribution }) {
   );
 }
 
-export default function RiskPanel({ riskList, selectedEventId, onSelectEvent }) {
+export default function RiskPanel({ riskList, selectedEventId, onSelectEvent, onSelectObject }) {
   return (
     <div
       className="hud-frame scrollbar-thin"
@@ -67,8 +67,28 @@ export default function RiskPanel({ riskList, selectedEventId, onSelectEvent }) 
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span className="mono" style={{ fontSize: 12.5, fontWeight: 600 }}>
-                {event.primary_name} × {event.secondary_name}
+              <span className="mono object-pair" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                <button
+                  type="button"
+                  className="object-link"
+                  onClick={(click) => {
+                    click.stopPropagation();
+                    onSelectObject?.(event.primary_id);
+                  }}
+                >
+                  {event.primary_name}
+                </button>
+                <span> × </span>
+                <button
+                  type="button"
+                  className="object-link"
+                  onClick={(click) => {
+                    click.stopPropagation();
+                    onSelectObject?.(event.secondary_id);
+                  }}
+                >
+                  {event.secondary_name}
+                </button>
               </span>
               <span className="mono" style={{ fontSize: 10, color }}>
                 {event.event_id}
