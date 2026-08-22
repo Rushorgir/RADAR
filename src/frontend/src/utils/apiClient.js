@@ -14,6 +14,30 @@ async function getJson(path) {
   return res.json();
 }
 
+const PAGE_SIZE = 1000; // the backend's own hard ceiling (routes_tle.py/routes_conjunction.py: Query(..., le=1000))
+
+/**
+ * Fetches every item from a paginated `{ items, total, page, size }` endpoint,
+ * looping pages until `total` is satisfied, instead of trusting a single
+ * request with a large `limit`. A fixed "just ask for a big limit" number
+ * silently truncates again the moment the catalog grows past it -- this bit
+ * us twice already (the route's own 100-item default undercounted an
+ * 829-object catalog, then a hardcoded limit=1000 undercounted again once
+ * the catalog grew past 1000) -- so this fetches however many pages it
+ * actually takes rather than picking another number to eventually outgrow.
+ */
+async function getAllPages(basePath) {
+  const separator = basePath.includes("?") ? "&" : "?";
+  const first = await getJson(`${basePath}${separator}limit=${PAGE_SIZE}&skip=0`);
+  const items = [...first.items];
+  while (items.length < first.total) {
+    const page = await getJson(`${basePath}${separator}limit=${PAGE_SIZE}&skip=${items.length}`);
+    if (page.items.length === 0) break; // guard against an unexpected total/items mismatch looping forever
+    items.push(...page.items);
+  }
+  return { items, total: first.total };
+}
+
 async function postJson(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -36,19 +60,17 @@ export function fetchDashboardSummary() {
 }
 
 /**
- * GET /api/tle/ -> { items: [{ object_id, object_name, object_type, line1, line2, epoch, ... }], total, page, size }
- * Requests the API's max page size (1000) -- the route defaults to 100,
- * which silently undercounts satellite/debris totals once the catalog
- * grows past that (bit us during dev: showed "10 satellites / 90 debris"
- * out of 829 real tracked objects, since that's exactly a 100-item page).
+ * GET /api/tle/ (all pages) -> { items: [{ object_id, object_name, object_type, line1, line2, epoch, ... }], total }
+ * Pages through the whole catalog -- see getAllPages for why this doesn't
+ * just request one large limit.
  */
 export function fetchTLEs() {
-  return getJson("/api/tle/?limit=1000");
+  return getAllPages("/api/tle/");
 }
 
-/** GET /api/conjunctions/ -> { items: [{ event_id, primary_id, secondary_id, tca, miss_distance_km, relative_velocity_km_s, pc, pc_method, ml_risk_score, shap_top_features, maneuver_delta_v_m_s, ... }], total, page, size } */
+/** GET /api/conjunctions/ (all pages) -> { items: [{ event_id, primary_id, secondary_id, tca, miss_distance_km, relative_velocity_km_s, pc, pc_method, ml_risk_score, shap_top_features, maneuver_delta_v_m_s, ... }], total } */
 export function fetchConjunctions() {
-  return getJson("/api/conjunctions/?limit=1000");
+  return getAllPages("/api/conjunctions/");
 }
 
 /**
