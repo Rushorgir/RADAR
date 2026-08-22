@@ -9,26 +9,40 @@ from src.propagation.covariance import (
     estimate_covariance_6x6_batch,
     is_positive_definite,
 )
-from src.propagation.models import BatchPropagationResult, PropagatedState, PropagationError, SGP4ErrorCode, TrajectoryResult
-from src.propagation.sgp4_engine import SGP4Propagator, SGP4PropagationFailure, build_epoch_grid, build_jd_fr_grid
+from src.propagation.current_positions import ObjectPosition, current_positions
+from src.propagation.models import (
+    BatchPropagationResult,
+    PropagatedState,
+    PropagationError,
+    SGP4ErrorCode,
+    TrajectoryResult,
+)
+from src.propagation.sgp4_engine import (
+    SGP4PropagationFailure,
+    SGP4Propagator,
+    build_epoch_grid,
+    build_jd_fr_grid,
+)
 
 __all__ = [
-    "propagate_catalog",
-    "propagate_catalog_arrays",
-    "CatalogPropagationArrays",
-    "summarize_covariance_health",
     "DEFAULT_SIGMA_MODELS",
+    "BatchPropagationResult",
+    "CatalogPropagationArrays",
+    "ObjectPosition",
+    "PropagatedState",
+    "PropagationError",
     "RICSigmaModel",
+    "SGP4ErrorCode",
+    "SGP4PropagationFailure",
+    "SGP4Propagator",
+    "TrajectoryResult",
+    "build_epoch_grid",
+    "build_jd_fr_grid",
+    "current_positions",
     "estimate_covariance_6x6",
     "estimate_covariance_6x6_batch",
     "is_positive_definite",
-    "BatchPropagationResult",
-    "PropagatedState",
-    "PropagationError",
-    "SGP4ErrorCode",
-    "TrajectoryResult",
-    "SGP4Propagator",
-    "SGP4PropagationFailure",
-    "build_epoch_grid",
-    "build_jd_fr_grid",
+    "propagate_catalog",
+    "propagate_catalog_arrays",
+    "summarize_covariance_health",
 ]

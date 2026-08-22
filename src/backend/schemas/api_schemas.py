@@ -76,6 +76,24 @@ class TLEDataResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ObjectPositionResponse(BaseModel):
+    """Real SGP4-propagated current position for one object (src/propagation/current_positions.py)."""
+    object_id: str
+    latitude_deg: float
+    longitude_deg: float
+    altitude_km: float
+
+
+class PositionsResponse(BaseModel):
+    epoch: datetime
+    positions: list[ObjectPositionResponse]
+    # How many tracked objects were requested vs. actually got a position --
+    # SGP4 can fail for a handful of objects (decayed, malformed elements);
+    # this makes that visible instead of a caller silently getting fewer
+    # positions than objects with no way to tell why.
+    requested: int
+
+
 class DashboardSummaryResponse(BaseModel):
     total_tracked_objects: int
     total_conjunction_events: int

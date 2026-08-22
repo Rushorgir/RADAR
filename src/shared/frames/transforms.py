@@ -34,7 +34,6 @@ from astropy import units as u
 from astropy.coordinates import GCRS, ITRS, TEME, CartesianDifferential, CartesianRepresentation
 from astropy.time import Time
 
-
 # ── Core data type ──────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -51,7 +50,7 @@ class StateVector:
         object.__setattr__(self, "velocity_km_s", velocity)
 
     @classmethod
-    def from_lists(cls, position: list[float], velocity: list[float]) -> "StateVector":
+    def from_lists(cls, position: list[float], velocity: list[float]) -> StateVector:
         return cls(position_km=np.array(position, dtype=float), velocity_km_s=np.array(velocity, dtype=float))
 
     def as_tuple(self) -> tuple[list[float], list[float]]:
@@ -282,6 +281,58 @@ def ecef_to_geodetic(state: StateVector, epoch: datetime | None = None) -> tuple
         float(geodetic.lon.to_value(u.deg)),
         float(geodetic.height.to_value(u.km)),
     )
+
+
+# ── Vectorized (batch) ECI -> ECEF and ECEF -> geodetic, for many objects at a
+#    single shared epoch (e.g. "current position of the whole catalog right
+#    now") -- mirrors teme_to_eci_batch above for the same reason: astropy's
+#    per-call frame-transform overhead dominates if paid once per object in a
+#    Python loop instead of once for the whole batch. ─────────────────────────
+
+def eci_to_ecef_batch(
+    positions_km: np.ndarray,
+    velocities_km_s: np.ndarray,
+    epoch: datetime,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Vectorized ECI/J2000 (GCRS) -> ECEF (ITRS) rotation for many objects that
+    all share one epoch. `positions_km` / `velocities_km_s`: shape (N, 3).
+    Returns (positions_km, velocities_km_s) each shape (N, 3), in ECEF/ITRS.
+    """
+    positions_km = np.asarray(positions_km, dtype=float).reshape(-1, 3)
+    velocities_km_s = np.asarray(velocities_km_s, dtype=float).reshape(-1, 3)
+    t = _to_astropy_time(epoch)
+
+    rep = CartesianRepresentation(
+        positions_km.T * u.km,
+        differentials=CartesianDifferential(velocities_km_s.T * u.km / u.s),
+    )
+    gcrs = GCRS(rep, obstime=t)
+    itrs = gcrs.transform_to(ITRS(obstime=t))
+
+    pos_out = itrs.cartesian.xyz.to_value(u.km).T
+    vel_out = itrs.cartesian.differentials["s"].d_xyz.to_value(u.km / u.s).T
+    return pos_out, vel_out
+
+
+def ecef_to_geodetic_batch(
+    positions_km: np.ndarray,
+    epoch: datetime | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Vectorized ECEF -> geodetic (WGS84) for many positions at a single shared
+    epoch. `positions_km`: shape (N, 3). Returns (latitude_deg, longitude_deg,
+    altitude_km), each shape (N,).
+    """
+    positions_km = np.asarray(positions_km, dtype=float).reshape(-1, 3)
+    t = _to_astropy_time(epoch) if epoch is not None else Time.now()
+
+    itrs = ITRS(CartesianRepresentation(positions_km.T * u.km), obstime=t)
+    geodetic = itrs.earth_location.geodetic
+    lat_deg = np.atleast_1d(geodetic.lat.to_value(u.deg))
+    lon_deg = np.atleast_1d(geodetic.lon.to_value(u.deg))
+    alt_km = np.atleast_1d(geodetic.height.to_value(u.km))
+    return lat_deg, lon_deg, alt_km
 
 
 # ── ECI -> RIC / RTN (Radial-Intrack-Crosstrack, aka Hill frame) ────────────────

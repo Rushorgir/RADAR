@@ -55,9 +55,9 @@ def update_conjunction_event(db: Session, event_id: str, update_data: dict) -> C
 
 # --- TLE Data CRUD ---
 
-def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100):
+def _latest_tle_query(db: Session):
     """
-    Return one row per tracked object -- its most recent TLE.
+    One row per tracked object -- its most recent TLE.
 
     TLEModel deliberately keeps every historical TLE for an object (see the
     model docstring), so a plain `SELECT * FROM tle_data` would list the same
@@ -72,21 +72,26 @@ def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100):
         .group_by(TLEModel.object_id)
         .subquery()
     )
-    return (
-        db.query(TLEModel)
-        .join(
-            latest_epoch,
-            (TLEModel.object_id == latest_epoch.c.object_id)
-            & (TLEModel.epoch == latest_epoch.c.max_epoch),
-        )
-        .order_by(TLEModel.object_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
+    return db.query(TLEModel).join(
+        latest_epoch,
+        (TLEModel.object_id == latest_epoch.c.object_id)
+        & (TLEModel.epoch == latest_epoch.c.max_epoch),
     )
+
+def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100):
+    return _latest_tle_query(db).order_by(TLEModel.object_id).offset(skip).limit(limit).all()
 
 def get_tle_catalog_count(db: Session) -> int:
     return db.query(func.count(func.distinct(TLEModel.object_id))).scalar() or 0
+
+def get_all_latest_tles(db: Session):
+    """
+    Every tracked object's latest TLE, unpaginated -- for batch operations
+    that need the whole catalog at once (e.g. propagating current positions
+    for the globe), as opposed to get_tle_catalog's paginated listing for
+    the TLE browsing API.
+    """
+    return _latest_tle_query(db).all()
 
 def get_tle_by_object_id(db: Session, object_id: str) -> TLEModel | None:
     # Returns the most recent TLE for the object

@@ -15,13 +15,17 @@
 // defaults) rather than fabricating fake ML output, and the schema is
 // already ML-ready (src/backend/schemas/api_schemas.py) so real values
 // will show up automatically once AI-3 lands, with no frontend change
-// needed. Similarly, real-time lat/lon/altitude for the globe requires
-// propagating each TLE (SGP4), which no endpoint returns yet and no
-// client-side propagator is wired up for -- positions here are a stable
-// per-object placeholder (deterministic from object_id, not random per
-// render) until that exists.
+// needed.
+//
+// Globe positions ARE now real: GET /api/tle/positions runs live SGP4
+// propagation server-side (src/propagation/current_positions.py) for every
+// tracked object's latest TLE. It's fetched best-effort, separately from
+// the rest of the live data -- if it fails, or a specific object's SGP4
+// propagation fails (decayed, malformed elements), that object falls back
+// to the old deterministic placeholder position rather than the whole
+// dashboard falling back to mock data over a globe-only issue.
 
-import { fetchConjunctions, fetchTLEs, fetchDashboardSummary } from "./apiClient";
+import { fetchConjunctions, fetchCurrentPositions, fetchTLEs, fetchDashboardSummary } from "./apiClient";
 
 // Same thresholds as src/shared/constants/physical.py PcThresholds, so the
 // frontend's risk-tier coloring agrees with the backend/AI-2's own notion
@@ -36,8 +40,9 @@ function riskTierFromPc(pc) {
 }
 
 // Deterministic pseudo-position from an id, so a given object stays put
-// across re-renders/refetches instead of jumping around. NOT a real orbital
-// position -- see the file-level comment.
+// across re-renders/refetches instead of jumping around. Fallback ONLY for
+// an object GET /api/tle/positions didn't return a real position for (see
+// the file-level comment) -- NOT the primary source of truth anymore.
 function stablePosition(seed) {
   let h = 0;
   for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -52,16 +57,22 @@ function objectTypeToGlobeType(objectType) {
 }
 
 /** Real TLE list -> mockObjects shape (src/data/mockData.js). */
-export function tlesToObjects(tles, riskTierByObjectId) {
-  return tles.map((tle) => ({
-    object_id: tle.object_id,
-    name: tle.object_name || `OBJ-${tle.object_id}`,
-    type: objectTypeToGlobeType(tle.object_type),
-    regime: "LEO",
-    ...stablePosition(tle.object_id),
-    cross_sectional_area_m2: null,
-    risk_tier: riskTierByObjectId.get(String(tle.object_id)) ?? "nominal",
-  }));
+export function tlesToObjects(tles, riskTierByObjectId, positionByObjectId = new Map()) {
+  return tles.map((tle) => {
+    const realPosition = positionByObjectId.get(String(tle.object_id));
+    const position = realPosition
+      ? { longitude: realPosition.longitude_deg, latitude: realPosition.latitude_deg, altitude_km: realPosition.altitude_km }
+      : stablePosition(tle.object_id);
+    return {
+      object_id: tle.object_id,
+      name: tle.object_name || `OBJ-${tle.object_id}`,
+      type: objectTypeToGlobeType(tle.object_type),
+      regime: "LEO",
+      ...position,
+      cross_sectional_area_m2: null,
+      risk_tier: riskTierByObjectId.get(String(tle.object_id)) ?? "nominal",
+    };
+  });
 }
 
 /** Real conjunction events -> mockRiskList shape (src/data/mockData.js). */
@@ -118,14 +129,25 @@ export function buildDashboardStats(summary, tles) {
  * callers should catch this and fall back to mock data (see App.jsx).
  */
 export async function loadLiveDashboardData() {
-  const [summary, tleResponse, conjunctionResponse] = await Promise.all([
+  const [summary, tleResponse, conjunctionResponse, positionsResponse] = await Promise.all([
     fetchDashboardSummary(),
     fetchTLEs(),
     fetchConjunctions(),
+    // Best-effort, on its own catch: a positions-endpoint hiccup should
+    // degrade to placeholder positions for the globe, not take down the
+    // whole live dashboard (which is what a shared Promise.all rejection
+    // would do).
+    fetchCurrentPositions().catch((err) => {
+      console.warn("[RADAR] Live positions unavailable, using placeholder positions:", err.message);
+      return { positions: [] };
+    }),
   ]);
 
   const tles = tleResponse.items ?? [];
   const events = conjunctionResponse.items ?? [];
+  const positionByObjectId = new Map(
+    (positionsResponse.positions ?? []).map((p) => [String(p.object_id), p])
+  );
 
   const nameByObjectId = new Map(tles.map((t) => [String(t.object_id), t.object_name || `OBJ-${t.object_id}`]));
   const riskTierByObjectId = new Map();
@@ -141,7 +163,7 @@ export async function loadLiveDashboardData() {
   }
 
   return {
-    objects: tlesToObjects(tles, riskTierByObjectId),
+    objects: tlesToObjects(tles, riskTierByObjectId, positionByObjectId),
     riskList: conjunctionsToRiskList(events, nameByObjectId),
     dashboardStats: buildDashboardStats(summary, tles),
   };

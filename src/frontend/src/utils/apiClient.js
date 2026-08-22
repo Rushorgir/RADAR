@@ -35,4 +35,16 @@ export function fetchConjunctions() {
   return getJson("/api/conjunctions/?limit=1000");
 }
 
+/**
+ * GET /api/tle/positions -> { epoch, requested, positions: [{ object_id, latitude_deg, longitude_deg, altitude_km }] }
+ * Real SGP4-propagated "where is it right now" per object, computed live by
+ * the backend from each object's latest stored TLE (src/propagation/current_positions.py).
+ * `positions.length` can be less than `requested` if a handful of objects
+ * fail to propagate (decayed, malformed elements) -- that's expected, not
+ * an error; see liveData.js for the per-object placeholder fallback.
+ */
+export function fetchCurrentPositions() {
+  return getJson("/api/tle/positions");
+}
+
 export { API_BASE };
