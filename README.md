@@ -1,11 +1,11 @@
-# 🛰️ RADAR — OrbitGuard: AI-Assisted Space Debris Collision Risk Detection & Avoidance
+# 🛰️ RADAR: AI-Assisted Space Debris Collision Risk Detection & Avoidance
 
 > **VITISH 2026 / SIH Internal Hackathon — Problem Statement #17**
 > Space Technology – Space Debris Detection & Collision Avoidance
 
 ## Overview
 
-OrbitGuard is a modular Space Situational Awareness (SSA) system that:
+RADAR is a modular Space Situational Awareness (SSA) system that:
 1. Ingests TLE data and propagates orbits via SGP4
 2. Screens for conjunction events using a two-stage coarse+fine filter
 3. Computes Probability of Collision (Pc) via Foster's 2D method
