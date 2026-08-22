@@ -63,7 +63,8 @@ function sliderPctFromHeight(heightM) {
 // provider itself reports ready. ~17,000km is the closest round distance
 // that reliably renders imagery while still comfortably fitting the entire
 // globe in frame -- verified visually, not a documented Cesium constant.
-const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, IMAGERY_LIMIT_HEIGHT_M);
+const STANDARD_GLOBE_HEIGHT_M = 19000000;
+const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GLOBE_HEIGHT_M);
 
 function animationPhase(time, periodSeconds) {
   return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
@@ -117,7 +118,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
   // slider's percentage math from the buttons/track until the user causes
   // some *other* camera change (e.g. clicking +/- clamped at a stale 0%,
   // which is exactly the bug this comment is here to prevent regressing).
-  const [zoomPct, setZoomPct] = useState(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
+  const [zoomPct, setZoomPct] = useState(sliderPctFromHeight(STANDARD_GLOBE_HEIGHT_M));
   const [tooltip, setTooltip] = useState(null);
 
   useEffect(() => {
@@ -346,7 +347,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     // there's no reason to round-trip through the listener for it anyway.
     if (selectedObjectId === null || selectedObjectId === undefined) {
       viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
-      setZoomPct(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
+      setZoomPct(sliderPctFromHeight(STANDARD_GLOBE_HEIGHT_M));
       return;
     }
     const entity = entityMapRef.current.get(String(selectedObjectId));
@@ -390,7 +391,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     if (!viewer) return;
     viewer.camera.cancelFlight();
     viewer.camera.flyTo({ destination: WHOLE_GLOBE_DESTINATION, duration: 1.1 });
-    setZoomPct(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
+    setZoomPct(sliderPctFromHeight(STANDARD_GLOBE_HEIGHT_M));
   }, []);
 
   return (
@@ -419,10 +420,10 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
           // Overview stat cluster (right:18, width:242) and the wider Threat
           // Analysis risk list (right:18, width:340) -- 18+340=358, so this
           // needs a bigger margin than the narrower panel alone would need.
-          right: 380,
+          left: 224,
           // Top-right, level with .intelligence-panel's own top edge
           // (top:18) rather than vertically centered on the globe.
-          top: 18,
+          top: 88,
           zIndex: 25,
         }}
       >

@@ -49,13 +49,8 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
             </div>
           )}
         </div>
-        <div className="header-status"><span className={`status-dot risk-${overallRiskStatus === "elevated" ? "high" : overallRiskStatus}`} /><span className="mono">SYSTEM: ACTIVE</span></div>
       </header>
       <aside className="navigation-rail hud-frame">
-        <div className="brand-block">
-          <strong className="brand-name">RADAR</strong>
-          <span className="eyebrow">Space debris intelligence</span>
-        </div>
       <span className="eyebrow nav-heading">Navigation</span>
       <nav className="mode-nav" aria-label="Primary navigation">
         {MODES.map((m) => {

@@ -137,6 +137,10 @@
   width: 242px;
   padding: 18px;
 }
+.panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline); }
+.panel-heading .panel-title { padding: 0; border: 0; }
+.select-all-button { padding: 3px 5px; color: var(--signal); background: transparent; border: 1px solid var(--signal-line); font: 9px var(--font-mono); text-transform: uppercase; white-space: nowrap; }
+.select-all-button:hover, .select-all-button:focus-visible { background: var(--signal-dim); outline: 2px solid var(--signal-line); outline-offset: 1px; }
 .panel-title { padding-bottom: 15px; border-bottom: 1px solid var(--hairline); }
 .metric-row {
   display: flex;
@@ -145,8 +149,18 @@
   gap: 12px;
   padding: 17px 0;
   border-bottom: 1px solid var(--hairline);
+  width: 100%;
+  color: inherit;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  text-align: left;
+  cursor: pointer;
 }
+.metric-row:hover, .metric-row:focus-visible, .metric-row.selected { color: var(--signal); background: var(--signal-dim); outline: none; }
+.metric-row:hover strong, .metric-row.selected strong { color: var(--signal); }
 .metric-row strong { font-size: 22px; color: var(--text-primary); }
+.filter-hint { padding-top: 12px; font-size: 9px; }
 .object-pair { display: inline-flex; align-items: baseline; gap: 3px; }
 .object-link { padding: 0; color: inherit; background: transparent; border: 0; font: inherit; cursor: pointer; }
 .object-link:hover, .object-link:focus-visible { color: var(--signal); text-decoration: underline; outline: none; }
@@ -209,6 +223,7 @@
   .navigation-rail { width: 155px; }
   .intelligence-panel { width: 205px; }
   .object-detail { right: 225px; width: 280px; }
+  .globe-zoom-control { left: 173px !important; }
   .top-header { gap: 12px; }
   .radar-logo { width: 170px; }
   .legend-item { gap: 5px; }
@@ -233,6 +248,7 @@
   .metric-row { display: inline-flex; width: 19%; flex-direction: column-reverse; gap: 5px; padding: 6px 8px; border-bottom: 0; }
   .metric-row strong { font-size: 17px; }
   .object-detail { top: 148px; left: 10px; right: 10px; width: auto; }
+  .globe-zoom-control { left: 10px !important; top: 142px !important; }
   .risk-legend { left: 10px; right: 10px; bottom: 10px; gap: 8px; padding: 7px 9px; overflow-x: auto; white-space: nowrap; }
   .legend-title { margin-right: 5px; }
 }

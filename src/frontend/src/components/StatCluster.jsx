@@ -6,16 +6,26 @@ const FIELDS = [
   { key: "active_missions", label: "Active Missions" },
 ];
 
-export default function StatCluster({ stats }) {
+export default function StatCluster({ stats, activeFilters, onToggleFilter, onSelectAll }) {
   return (
     <aside className="intelligence-panel hud-frame">
-      <div className="eyebrow panel-title">Intelligence // Overview</div>
+      <div className="panel-heading">
+        <div className="eyebrow panel-title">Intelligence // Overview</div>
+        <button type="button" className="select-all-button" onClick={onSelectAll}>Select all</button>
+      </div>
       {FIELDS.map((f) => (
-        <div className="metric-row" key={f.key}>
+        <button
+          type="button"
+          className={`metric-row ${activeFilters.includes(f.key) ? "selected" : ""}`}
+          key={f.key}
+          onClick={() => onToggleFilter(f.key)}
+          aria-pressed={activeFilters.includes(f.key)}
+        >
           <span className="eyebrow">{f.label}</span>
           <strong className="mono">{stats[f.key]}</strong>
-        </div>
+        </button>
       ))}
+      {activeFilters.length > 0 && <div className="filter-hint eyebrow">Showing selected object groups</div>}
     </aside>
   );
 }
