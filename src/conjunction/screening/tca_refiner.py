@@ -30,15 +30,23 @@ def refine_tca(
         return float(times_s[idx]), float(distances_km[idx])
         
     spline = CubicSpline(times_s, distances_km)
-    
+
     # We want to find the minimum of the spline within the bounds of our data
     result = minimize_scalar(
         spline,
         bounds=(times_s[0], times_s[-1]),
         method='bounded'
     )
-    
-    return float(result.x), float(spline(result.x))
+
+    # A cubic spline isn't constrained to stay within the range of its own
+    # sample points between knots -- for a sharp, fast flyby (more common
+    # once the screened catalog gets big enough to include closer/faster
+    # encounters) it can overshoot past zero right at the interpolated
+    # minimum even though every real sampled distance was positive. A
+    # physical distance can never be negative; clamp the numerical
+    # artifact rather than let it become a Pydantic ValidationError deep
+    # in event packaging (ConjunctionEvent.miss_distance_km requires >= 0).
+    return float(result.x), max(0.0, float(spline(result.x)))
 
 
 def interpolate_state_at_tca(
