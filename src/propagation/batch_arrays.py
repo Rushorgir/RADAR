@@ -162,9 +162,32 @@ def propagate_catalog_arrays(
         # Group objects by type so each DEFAULT_SIGMA_MODELS variant is applied
         # in one vectorized call across every (object, timestep) pair of that
         # type, rather than one call per object.
-        object_types = np.array([tle.object_type for tle in parsed_tles], dtype=object)
-        for object_type in set(object_types):
-            rows = np.flatnonzero(object_types == object_type)
+        #
+        # Grouped in plain Python (dict keyed by the ObjectType enum member),
+        # NOT via a numpy object-array `==` comparison -- ObjectType is a
+        # (str, Enum) hybrid, and numpy silently mishandles that combination:
+        # comparing an object-dtype array against an enum *scalar* coerces the
+        # scalar through np.asarray first, which for a (str, Enum) member
+        # produces a truncated fixed-width string (e.g. ObjectType.PAYLOAD ->
+        # "ObjectT"), not the intended value. The comparison then returns
+        # all-False for every element, even ones that really do match --
+        # `rows` was always empty, `combined_mask` was always empty, and this
+        # whole covariance-estimation block silently never ran, leaving every
+        # object's covariance at its np.zeros(...) initial value. That
+        # degenerate zero covariance then fed straight into AI-2's Pc engine,
+        # collapsing every single conjunction's probability to exactly 0.0
+        # (Monte Carlo sampling a zero-variance "distribution" deterministically
+        # lands on the mean, which for any real multi-km miss distance is
+        # nowhere near the collision sphere) -- discovered because it made
+        # every AI-3 ML ranking output identical (Pc's log10 feeds one of the
+        # model's top-weighted features, and log10(0) was floored to the same
+        # sentinel constant for every event). Plain dict grouping below never
+        # goes through numpy's scalar coercion, so it isn't exposed to this.
+        rows_by_type: dict[ObjectType, list[int]] = {}
+        for row, tle in enumerate(parsed_tles):
+            rows_by_type.setdefault(tle.object_type, []).append(row)
+
+        for object_type, rows in rows_by_type.items():
             row_mask = np.zeros((n_objects, n_steps), dtype=bool)
             row_mask[rows, :] = True
             combined_mask = row_mask & ok_mask

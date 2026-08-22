@@ -72,6 +72,38 @@ class TestPropagateCatalogArrays:
             for step_idx in range(arrays.n_steps):
                 assert is_positive_definite(arrays.covariances_eci[obj_idx, step_idx])
 
+    def test_covariance_is_realistic_magnitude_for_every_object_type(self):
+        """
+        Regression test: the per-type grouping in propagate_catalog_arrays used
+        to compare a numpy object-array of ObjectType (a `(str, Enum)` hybrid)
+        against an enum *scalar* with `==`. numpy silently mis-coerces a
+        (str, Enum) scalar through np.asarray before comparing, which produced
+        an all-False result even for objects that really were that type --
+        every group's mask ended up empty, so estimate_covariance_6x6_batch
+        was *never actually called*, and every object's covariance silently
+        stayed at its np.zeros(...) initial value.
+
+        test_covariance_is_positive_definite above didn't catch this: it uses
+        is_positive_definite's 1e-12 epsilon padding, which makes even an
+        exact zero matrix "pass" as positive-definite. This test instead
+        checks the covariance has a realistic physical magnitude (RIC sigma
+        model floors are 0.05-0.20km per axis -- (0.01km)^2 is a generous
+        lower bound with margin), which a degenerate zero matrix fails.
+        Exercises both PAYLOAD and DEBRIS (the dataset mixes types) since the
+        bug was in the per-type grouping specifically.
+        """
+        dataset = _dataset()
+        start = min(t.epoch for t in dataset)
+        arrays = propagate_catalog_arrays(dataset, start, start + timedelta(hours=1), step_s=300.0)
+        min_realistic_variance_km2 = 0.01 ** 2
+        for obj_idx in range(arrays.n_objects):
+            for step_idx in range(arrays.n_steps):
+                diag = np.diag(arrays.covariances_eci[obj_idx, step_idx])[:3]
+                assert np.all(diag > min_realistic_variance_km2), (
+                    f"object {obj_idx} step {step_idx}: position covariance diagonal "
+                    f"{diag} is at/below the degenerate-zero floor"
+                )
+
     def test_covariance_can_be_disabled(self):
         dataset = _dataset()
         start = min(t.epoch for t in dataset)
