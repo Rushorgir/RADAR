@@ -5,13 +5,13 @@ End-to-end Conjunction Screening and Probability Pipeline.
 from typing import List, Tuple
 from loguru import logger
 from datetime import timedelta
-
 import numpy as np
 
 from src.shared.interfaces.contracts import PropagatedEpoch, ConjunctionEvent, PcMethod, ValidityFlags
+from src.shared.constants.physical import PC
 from src.conjunction.screening.engine import ScreeningEngine
 from src.conjunction.screening.tca_refiner import refine_tca, interpolate_state_at_tca
-from src.conjunction.models.encounter import EncounterGeometry
+from src.conjunction.models.encounter import EncounterGeometry, extract_position_covariance
 from src.conjunction.probability.encounter_frame import compute_encounter_frame, project_to_encounter_plane
 from src.conjunction.probability.engine import PcEngine, PcResult
 
@@ -77,8 +77,6 @@ class ConjunctionPipeline:
             s_closest = s_states[idx_s]
             
             # Extract position covariances
-            # We use extract_position_covariance from the models which falls back to default if None
-            from src.conjunction.models.encounter import extract_position_covariance
             cov1 = extract_position_covariance(p_closest.covariance_array())
             cov2 = extract_position_covariance(s_closest.covariance_array())
             cov_pos_combined = cov1 + cov2
@@ -135,8 +133,6 @@ class ConjunctionPipeline:
         # Optional fields might be None if we skipped frame transform (Log Only path)
         rel_pos_enc = encounter.relative_position_enc.tolist() if encounter.relative_position_enc is not None else None
         cov_enc = encounter.combined_covariance_enc.tolist() if encounter.combined_covariance_enc is not None else None
-        
-        from src.shared.constants.physical import PC
 
         return ConjunctionEvent(
             primary_id=encounter.primary_state.object_id,

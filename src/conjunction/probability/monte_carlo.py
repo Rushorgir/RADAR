@@ -1,13 +1,13 @@
 """
 Monte Carlo Fallback for Probability of Collision (Pc)
 
-Uses a vectorized sampling approach to estimate Pc when Foster's 2D analytical method cannot be used
-(e.g., due to low relative velocity or degenerate covariance).
+Uses a high-performance vectorized relative-state sampling approach to estimate Pc when Foster's 2D analytical method
+cannot be used (e.g., due to low relative velocity or degenerate covariance).
 """
 
 from typing import Tuple, Optional
 import numpy as np
-import scipy.stats
+from scipy.special import ndtri
 
 from src.shared.constants.physical import PC
 
@@ -29,7 +29,7 @@ def monte_carlo_pc(
         r2: (3,) secondary position km
         cov1_pos: (3,3) primary position covariance
         cov2_pos: (3,3) secondary position covariance
-        combined_radius_km: combined hard-body radius R_c
+        combined_radius_km: combined hard-body radius R_c (km)
         confidence: Confidence interval level (default 0.95)
         seed: Random seed for reproducibility
         
@@ -38,7 +38,7 @@ def monte_carlo_pc(
     """
     rng = np.random.default_rng(seed)
     
-    # Phase 1: Initial sampling
+    # Phase 1: Initial sampling (10^5 samples)
     n_samples = PC.MONTE_CARLO_SAMPLES
     pc, lower, upper = _run_mc(
         rng, r1, r2, cov1_pos, cov2_pos, combined_radius_km, n_samples, confidence
@@ -64,28 +64,49 @@ def _run_mc(
     n: int,
     confidence: float,
 ) -> Tuple[float, float, float]:
-    """Run a single vectorized Monte Carlo simulation with n samples."""
-    # Ensure covariance matrices are symmetric and semi-positive definite
-    # by adding a tiny jitter to the diagonal
-    cov1_safe = cov1 + np.eye(3) * 1e-12
-    cov2_safe = cov2 + np.eye(3) * 1e-12
+    """
+    Run a single vectorized relative-state Monte Carlo simulation with n samples.
     
-    # Vectorized sampling
-    samples_r1 = rng.multivariate_normal(r1, cov1_safe, size=n, method='eigh')
-    samples_r2 = rng.multivariate_normal(r2, cov2_safe, size=n, method='eigh')
+    Since r1 ~ N(r1, cov1) and r2 ~ N(r2, cov2),
+    relative position delta_r = r1 - r2 ~ N(r1 - r2, cov1 + cov2).
+    """
+    diff_mean = r1 - r2
+    cov_combined = cov1 + cov2 + np.eye(3) * 1e-12
     
-    # Vectorized distance computation
-    diffs = samples_r1 - samples_r2
-    distances = np.linalg.norm(diffs, axis=1)
+    # Efficient Cholesky or spectral square-root factor
+    try:
+        L = np.linalg.cholesky(cov_combined)
+    except np.linalg.LinAlgError:
+        eigvals, eigvecs = np.linalg.eigh(cov_combined)
+        eigvals = np.maximum(eigvals, 1e-12)
+        L = eigvecs * np.sqrt(eigvals)
+        
+    # Generate (n, 3) standard normal numbers and project
+    z_std = rng.standard_normal((n, 3))
+    samples_diff = z_std @ L.T + diff_mean
+    
+    # Fast squared distance evaluation
+    dist_sq = np.sum(samples_diff**2, axis=1)
     
     # Count collisions
-    n_collisions = int(np.sum(distances <= radius))
+    n_collisions = int(np.sum(dist_sq <= radius**2))
     pc = n_collisions / n
     
     # Wilson score confidence interval for binomial proportion
-    z = scipy.stats.norm.ppf(1 - (1 - confidence) / 2)
-    denom = 1 + z**2 / n
-    center = (pc + z**2 / (2 * n)) / denom
-    half_width = z * np.sqrt(pc * (1 - pc) / n + z**2 / (4 * n**2)) / denom
+    p_alpha = 1.0 - (1.0 - confidence) / 2.0
+    z = float(ndtri(p_alpha))
+    denom = 1.0 + z**2 / n
+    center = (pc + z**2 / (2.0 * n)) / denom
+    half_width = z * np.sqrt(pc * (1.0 - pc) / n + z**2 / (4.0 * n**2)) / denom
     
-    return pc, max(0.0, float(center - half_width)), min(1.0, float(center + half_width))
+    if pc == 0.0:
+        lower_bound = 0.0
+        upper_bound = min(1.0, float(center + half_width))
+    elif pc == 1.0:
+        lower_bound = max(0.0, float(center - half_width))
+        upper_bound = 1.0
+    else:
+        lower_bound = max(0.0, float(center - half_width))
+        upper_bound = min(1.0, float(center + half_width))
+        
+    return pc, lower_bound, upper_bound
