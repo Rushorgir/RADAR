@@ -67,7 +67,7 @@ const STANDARD_GLOBE_HEIGHT_M = 19000000;
 const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GLOBE_HEIGHT_M);
 const POSITION_REFERENCE_MS = Date.now();
 
-function dynamicObjectPosition(object) {
+function clockDrivenObjectPosition(object) {
   const radiusM = (6371 + Number(object.altitude_km || 550)) * 1000;
   const startingLongitude = Cesium.Math.toRadians(Number(object.longitude || 0));
   const inclination = Cesium.Math.toRadians(Math.min(88, Math.max(8, Math.abs(Number(object.latitude || 30)))));
@@ -133,7 +133,7 @@ export default function GlobeView({
   selectedObjectId,
   onSelectObject,
   corridorWaypoints,
-  simulationTime,
+  simulationClock,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -166,6 +166,7 @@ export default function GlobeView({
     // and silently leaving the *real* (second) viewer with no imagery at all.
 
     const viewer = new Cesium.Viewer(containerRef.current, {
+      clockViewModel: new Cesium.ClockViewModel(simulationClock),
       baseLayer: false,
       baseLayerPicker: false,
       timeline: false,
@@ -230,7 +231,6 @@ export default function GlobeView({
     viewer.camera.setView({
       destination: WHOLE_GLOBE_DESTINATION,
     });
-    viewer.clock.shouldAnimate = false;
 
     viewer.screenSpaceEventHandler.setInputAction((click) => {
       const picked = viewer.scene.pick(click.position);
@@ -309,11 +309,6 @@ export default function GlobeView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (viewer && simulationTime) viewer.clock.currentTime = Cesium.JulianDate.fromDate(simulationTime);
-  }, [simulationTime]);
-
   // ---- sync entities whenever the object list changes ----
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -323,7 +318,7 @@ export default function GlobeView({
     entityMapRef.current.clear();
 
     objects.forEach((obj) => {
-      const position = dynamicObjectPosition(obj);
+      const position = clockDrivenObjectPosition(obj);
 
       const entity = viewer.entities.add({
         position,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import * as Cesium from "cesium";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
@@ -64,27 +65,23 @@ function makeLabel(text, colorCss) {
   return obj;
 }
 
-export default function SolarSystemView({ onSelectBody, selectedBodyId, simulationTime }) {
+export default function SolarSystemView({ onSelectBody, selectedBodyId, simulationClock }) {
   const containerRef = useRef(null);
   const stateRef = useRef(null);
   const onSelectBodyRef = useRef(onSelectBody);
-  const simulationTimeRef = useRef(simulationTime);
-  const simulationReferenceMs = useRef(Date.now());
   const [hoveredName, setHoveredName] = useState(null);
 
   useEffect(() => {
     onSelectBodyRef.current = onSelectBody;
   }, [onSelectBody]);
 
-  useEffect(() => {
-    simulationTimeRef.current = simulationTime;
-  }, [simulationTime]);
 
   useEffect(() => {
     // Unlike GlobeView's Cesium setup, everything here is synchronous (no
     // cross-mount async promise that could resolve against an already-
     // destroyed instance), so no StrictMode double-invoke guard is needed.
     const container = containerRef.current;
+    const simulationReferenceSeconds = Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#05070c");
@@ -249,7 +246,9 @@ export default function SolarSystemView({ onSelectBody, selectedBodyId, simulati
     let frameId;
     function animate() {
       frameId = requestAnimationFrame(animate);
-      const elapsedSeconds = (simulationTimeRef.current.getTime() - simulationReferenceMs.current) / 1000;
+      simulationClock.tick();
+      const simulationSeconds = Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000;
+      const elapsedSeconds = simulationSeconds - simulationReferenceSeconds;
       planetMeshes.forEach(({ pivot, angularSpeed: speed, initialAngle }) => {
         pivot.rotation.y = initialAngle + speed * elapsedSeconds * 0.1;
       });

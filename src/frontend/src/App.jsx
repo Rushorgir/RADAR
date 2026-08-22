@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as Cesium from "cesium";
 import GlobeView from "./components/GlobeView";
 import SolarSystemView from "./components/SolarSystemView";
 import TopBar from "./components/TopBar";
@@ -15,6 +16,21 @@ import { mockObjects, mockRiskList, mockDashboardStats } from "./data/mockData";
 import { buildObjectDetail, normalizeId } from "./utils/objectDetails";
 import { loadLiveDashboardData } from "./utils/liveData";
 
+const simulationClock = createSimulationClock();
+
+function createSimulationClock() {
+  const now = Cesium.JulianDate.now();
+  return new Cesium.Clock({
+    startTime: Cesium.JulianDate.addDays(now, -30, new Cesium.JulianDate()),
+    currentTime: now,
+    stopTime: Cesium.JulianDate.addDays(now, 30, new Cesium.JulianDate()),
+    clockRange: Cesium.ClockRange.CLAMPED,
+    clockStep: Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER,
+    multiplier: 1,
+    shouldAnimate: true,
+  });
+}
+
 export default function App() {
   const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch | solar
   const [showSweep, setShowSweep] = useState(false);
@@ -23,17 +39,13 @@ export default function App() {
   const [selectedBodyId, setSelectedBodyId] = useState(null);
   const [corridorWaypoints, setCorridorWaypoints] = useState(null);
   const [activeFilters, setActiveFilters] = useState([]);
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-  const [playing, setPlaying] = useState(true);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
 
   useEffect(() => {
-    if (!playing) return undefined;
-    const timer = window.setInterval(() => {
-      setCurrentTime((time) => new Date(time.getTime() + playbackRate * 250));
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [playing, playbackRate]);
+    const syncTime = (clock) => setCurrentTime(Cesium.JulianDate.toDate(clock.currentTime));
+    simulationClock.onTick.addEventListener(syncTime);
+    return () => simulationClock.onTick.removeEventListener(syncTime);
+  }, []);
 
   // Start with mock data so the UI renders immediately; swap in real data
   // from the backend if/when it loads. If the backend isn't running (e.g.
@@ -102,7 +114,7 @@ export default function App() {
         <SolarSystemView
           selectedBodyId={selectedBodyId}
           onSelectBody={setSelectedBodyId}
-          simulationTime={currentTime}
+          simulationClock={simulationClock}
         />
       ) : (
         <GlobeView
@@ -111,7 +123,7 @@ export default function App() {
           selectedObjectId={selectedObjectId}
           onSelectObject={selectObject}
           corridorWaypoints={corridorWaypoints}
-          simulationTime={currentTime}
+          simulationClock={simulationClock}
         />
       )}
 
@@ -124,11 +136,22 @@ export default function App() {
         timeControls={
           <TimeControls
             currentTime={currentTime}
-            playing={playing}
-            playbackRate={playbackRate}
-            onTogglePlay={() => setPlaying((value) => !value)}
-            onSetRate={setPlaybackRate}
-            onStep={(milliseconds) => setCurrentTime((time) => new Date(time.getTime() + milliseconds))}
+            playing={simulationClock.shouldAnimate}
+            playbackRate={simulationClock.multiplier}
+            onTogglePlay={() => { simulationClock.shouldAnimate = !simulationClock.shouldAnimate; setCurrentTime(Cesium.JulianDate.toDate(simulationClock.currentTime)); }}
+            onSetRate={(rate) => { simulationClock.multiplier = rate; simulationClock.shouldAnimate = true; }}
+            onStep={(milliseconds) => {
+              simulationClock.currentTime = Cesium.JulianDate.addSeconds(
+                simulationClock.currentTime,
+                milliseconds / 1000,
+                new Cesium.JulianDate(),
+              );
+              setCurrentTime(Cesium.JulianDate.toDate(simulationClock.currentTime));
+            }}
+            onSelectDate={(date) => {
+              simulationClock.currentTime = Cesium.JulianDate.fromDate(date);
+              setCurrentTime(date);
+            }}
           />
         }
       />
