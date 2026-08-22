@@ -11,16 +11,19 @@
   --text-secondary: #8892a8;
   --text-dim: #545e78;
 
-  --signal: #3fd6c6;        /* nominal / active telemetry cyan-teal */
+  --signal: #35d9ff;        /* operational satellite cyan */
   --signal-dim: rgba(63, 214, 198, 0.14);
   --signal-line: rgba(63, 214, 198, 0.35);
 
-  --risk-critical: #ff5c5c;
-  --risk-critical-dim: rgba(255, 92, 92, 0.14);
-  --risk-elevated: #ffa94d;
-  --risk-elevated-dim: rgba(255, 169, 77, 0.14);
-  --risk-medium: #f1cf62;
-  --risk-nominal: #3fd6c6;
+  --risk-critical: #ff3030;
+  --risk-critical-dim: rgba(255, 48, 48, 0.14);
+  --risk-high: #ff6333;
+  --risk-high-dim: rgba(255, 99, 51, 0.14);
+  --risk-elevated: #ff6333;
+  --risk-elevated-dim: rgba(255, 99, 51, 0.14);
+  --risk-medium: #ffb020;
+  --risk-low: #8a9baa;
+  --risk-nominal: #8a9baa;
 
   --debris-dot: #4a5570;
 
