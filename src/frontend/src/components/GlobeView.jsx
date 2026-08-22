@@ -10,6 +10,7 @@ import {
   getWarningRing,
   isAnimatedRisk,
 } from "../utils/objectVisuals";
+import { fetchCurrentPositions } from "../utils/apiClient";
 
 // Zoom slider range. NaturalEarthII (see the imagery provider below) is a
 // low-resolution whole-Earth texture, not a tiled high-detail basemap -- it
@@ -65,25 +66,26 @@ function sliderPctFromHeight(heightM) {
 // globe in frame -- verified visually, not a documented Cesium constant.
 const STANDARD_GLOBE_HEIGHT_M = 19000000;
 const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GLOBE_HEIGHT_M);
-const POSITION_REFERENCE_MS = Date.now();
 
-function clockDrivenObjectPosition(object) {
-  const radiusM = (6371 + Number(object.altitude_km || 550)) * 1000;
-  const startingLongitude = Cesium.Math.toRadians(Number(object.longitude || 0));
-  const inclination = Cesium.Math.toRadians(Math.min(88, Math.max(8, Math.abs(Number(object.latitude || 30)))));
-  const periodSeconds = 5100 + ((Number(object.altitude_km || 550) - 400) / 800) * 1800;
-  const phaseOffset = (Number(object.object_id) || 0) % 360;
-
-  return new Cesium.CallbackProperty((time) => {
-    const elapsedSeconds = (Cesium.JulianDate.toDate(time).getTime() - POSITION_REFERENCE_MS) / 1000;
-    const angle = startingLongitude + phaseOffset * Math.PI / 180 + elapsedSeconds * 2 * Math.PI / periodSeconds;
-    return new Cesium.Cartesian3(
-      radiusM * Math.cos(angle),
-      radiusM * Math.sin(angle) * Math.cos(inclination),
-      radiusM * Math.sin(angle) * Math.sin(inclination),
-    );
-  }, false);
-}
+// How often (real wall-clock ms) to re-fetch real SGP4-propagated positions
+// for the whole catalog at the timeline's current simulated instant.
+//
+// This replaces a previous client-side circular-orbit approximation that
+// derived an object's "inclination" from clamp(|latitude|, 8, 88) -- always
+// positive, which algebraically forces cos(inclination) and sin(inclination)
+// to share sin(theta)'s sign, permanently locking every northern-hemisphere
+// object to eastern longitude and every southern one to western longitude.
+// Verified against the real AI-1 SGP4 pipeline (src/propagation/): a 20x20
+// degree lat/lon grid was ~49% permanently empty under the fake model at
+// every tested simulated timestamp, vs ~2% for real propagated positions.
+//
+// Real objects now render at their real, AI-1-computed position
+// (GET /api/tle/positions, src/propagation/current_positions.py). The
+// tradeoff is that positions update in discrete steps (every
+// REFRESH_INTERVAL_MS of real time) rather than continuously animating --
+// preferable to smoothly animating through a position that was never
+// physically correct in the first place.
+const REFRESH_INTERVAL_MS = 4000;
 
 function animationPhase(time, periodSeconds) {
   return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
@@ -139,6 +141,12 @@ export default function GlobeView({
   const viewerRef = useRef(null);
   const corridorDataSourceRef = useRef(null);
   const entityMapRef = useRef(new Map());
+  // object_id -> every entity sharing that object's position (main
+  // billboard, plus its optional warningRing/selectionRing). entityMapRef
+  // above stays a single object_id -> billboard entity map (viewer.flyTo
+  // below needs one real Entity), so this is a separate ref rather than
+  // widening that one.
+  const positionEntitiesRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
   const hoveredEntityRef = useRef(null);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
@@ -316,9 +324,20 @@ export default function GlobeView({
 
     viewer.entities.removeAll();
     entityMapRef.current.clear();
+    positionEntitiesRef.current.clear();
 
     objects.forEach((obj) => {
-      const position = clockDrivenObjectPosition(obj);
+      // Real position, straight from the object's own latitude/longitude/
+      // altitude (src/propagation/current_positions.py via liveData.js) --
+      // not an approximated orbit. It's kept current as the simulated
+      // clock advances by the periodic refresh effect below, which mutates
+      // these entities' .position in place rather than rebuilding them.
+      const position = Cesium.Cartesian3.fromDegrees(
+        Number(obj.longitude) || 0,
+        Number(obj.latitude) || 0,
+        (Number(obj.altitude_km) || 550) * 1000,
+      );
+      const sharedPositionEntities = [];
 
       const entity = viewer.entities.add({
         position,
@@ -334,6 +353,7 @@ export default function GlobeView({
       entity.radarId = obj.object_id;
       entity.radarObject = obj;
       entityMapRef.current.set(String(obj.object_id), entity);
+      sharedPositionEntities.push(entity);
 
       const tier = getVisualRiskTier(obj);
       const meta = getVisualMeta(obj);
@@ -352,6 +372,7 @@ export default function GlobeView({
         warningRing.radarWarningRing = true;
         warningRing.radarId = obj.object_id;
         warningRing.radarObject = obj;
+        sharedPositionEntities.push(warningRing);
       }
 
       if (String(obj.object_id) === String(selectedObjectId)) {
@@ -367,9 +388,48 @@ export default function GlobeView({
         });
         selectionRing.radarId = obj.object_id;
         selectionRing.radarObject = obj;
+        sharedPositionEntities.push(selectionRing);
       }
+
+      positionEntitiesRef.current.set(String(obj.object_id), sharedPositionEntities);
     });
   }, [objects, mode, selectedObjectId]);
+
+  // ---- keep positions current with the simulated clock (real SGP4, not an
+  // approximated orbit) ----
+  useEffect(() => {
+    if (!simulationClock) return undefined;
+    let cancelled = false;
+
+    const refreshPositions = () => {
+      const at = Cesium.JulianDate.toDate(simulationClock.currentTime);
+      fetchCurrentPositions(at)
+        .then((response) => {
+          if (cancelled) return;
+          for (const p of response.positions ?? []) {
+            const entities = positionEntitiesRef.current.get(String(p.object_id));
+            if (!entities || entities.length === 0) continue;
+            const cartesian = Cesium.Cartesian3.fromDegrees(p.longitude_deg, p.latitude_deg, p.altitude_km * 1000);
+            for (const entity of entities) {
+              entity.position = cartesian;
+            }
+          }
+        })
+        .catch((err) => {
+          // Best-effort: a missed refresh just leaves objects at their last
+          // known real position until the next tick succeeds, rather than
+          // falling back to any synthetic motion.
+          console.warn("[RADAR] GlobeView: failed to refresh real positions:", err.message);
+        });
+    };
+
+    refreshPositions();
+    const intervalId = setInterval(refreshPositions, REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [simulationClock]);
 
   // ---- draw the launch corridor overlay (Launch Planner mode) ----
   useEffect(() => {

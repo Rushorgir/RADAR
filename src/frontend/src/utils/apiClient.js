@@ -74,15 +74,20 @@ export function fetchConjunctions() {
 }
 
 /**
- * GET /api/tle/positions -> { epoch, requested, positions: [{ object_id, latitude_deg, longitude_deg, altitude_km }] }
- * Real SGP4-propagated "where is it right now" per object, computed live by
- * the backend from each object's latest stored TLE (src/propagation/current_positions.py).
+ * GET /api/tle/positions[?at=<ISO8601>] -> { epoch, requested, positions: [{ object_id, latitude_deg, longitude_deg, altitude_km }] }
+ * Real SGP4-propagated position per object, computed live by the backend
+ * from each object's latest stored TLE (src/propagation/current_positions.py).
+ * `at` (optional Date) requests the real propagated position at that
+ * instant instead of right now -- this is what GlobeView uses to keep
+ * objects at their true orbital position as the simulated timeline
+ * advances, rather than approximating motion with a client-side formula.
  * `positions.length` can be less than `requested` if a handful of objects
  * fail to propagate (decayed, malformed elements) -- that's expected, not
  * an error; see liveData.js for the per-object placeholder fallback.
  */
-export function fetchCurrentPositions() {
-  return getJson("/api/tle/positions");
+export function fetchCurrentPositions(at) {
+  const query = at ? `?at=${encodeURIComponent(at.toISOString())}` : "";
+  return getJson(`/api/tle/positions${query}`);
 }
 
 /**

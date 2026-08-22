@@ -64,6 +64,33 @@ def test_get_current_positions(client, db_session):
     assert -90.0 <= position["latitude_deg"] <= 90.0
     assert -180.0 <= position["longitude_deg"] <= 180.0
 
+def test_get_current_positions_accepts_at_param(client, db_session):
+    """
+    The `at` query param drives real SGP4 propagation to an arbitrary
+    timestamp (not just "now") -- this is what lets the frontend's
+    simulated timeline request real positions as it advances, instead of
+    approximating motion client-side.
+    """
+    crud.create_tle(db_session, {
+        "object_id": "25544",
+        "object_name": "ISS (ZARYA)",
+        "line1": ISS_LINE1,
+        "line2": ISS_LINE2,
+        "epoch": datetime.utcnow(),
+    })
+
+    response_now = client.get("/api/tle/positions")
+    response_future = client.get("/api/tle/positions?at=2026-09-15T12:00:00Z")
+
+    assert response_now.status_code == 200
+    assert response_future.status_code == 200
+    pos_now = response_now.json()["positions"][0]
+    pos_future = response_future.json()["positions"][0]
+    # ISS orbits every ~90 minutes -- three weeks later it must be somewhere
+    # substantially different, not the same instant re-served.
+    assert response_future.json()["epoch"].startswith("2026-09-15T12:00:00")
+    assert (pos_now["latitude_deg"], pos_now["longitude_deg"]) != (pos_future["latitude_deg"], pos_future["longitude_deg"])
+
 def test_get_current_positions_skips_unparseable_tle(client, db_session):
     """A malformed stored TLE shouldn't 500 the whole endpoint -- it's
     dropped (requested still counts it; positions doesn't)."""

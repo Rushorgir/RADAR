@@ -34,12 +34,21 @@ async def get_tle_catalog(
 # order, so a static "/positions" segment must come first or every request
 # here would instead match /{object_id} with object_id="positions".
 @router.get("/positions", response_model=PositionsResponse)
-async def get_current_positions(db: Session = Depends(get_db)):
+async def get_current_positions(
+    at: datetime | None = Query(
+        None,
+        description="UTC timestamp to propagate to (ISO 8601). Defaults to now. "
+        "Lets a caller driving a simulated clock (e.g. the frontend's timeline "
+        "control) request real SGP4-propagated positions at any point along "
+        "it, not just the actual current instant.",
+    ),
+    db: Session = Depends(get_db),
+):
     """
-    Real SGP4-propagated current lat/lon/altitude for every tracked object,
-    computed live (right now) from each object's latest stored TLE. Not
-    cached or stored -- a "current position" is only valid for the instant
-    it was computed, so there's nothing worth persisting here.
+    Real SGP4-propagated lat/lon/altitude for every tracked object at `at`
+    (default: right now), computed live from each object's latest stored
+    TLE. Not cached or stored -- a position is only valid for the instant
+    it was computed for, so there's nothing worth persisting here.
     """
     tle_rows = crud.get_all_latest_tles(db)
 
@@ -50,11 +59,16 @@ async def get_current_positions(db: Session = Depends(get_db)):
         except TLEParseError as exc:
             logger.warning(f"Skipping object {row.object_id}, stored TLE failed to parse: {exc}")
 
-    now = datetime.now(timezone.utc)
-    positions = compute_current_positions(parsed_tles, at=now)
+    if at is None:
+        target = datetime.now(timezone.utc)
+    elif at.tzinfo is None:
+        target = at.replace(tzinfo=timezone.utc)  # assume UTC rather than guessing local time
+    else:
+        target = at.astimezone(timezone.utc)
+    positions = compute_current_positions(parsed_tles, at=target)
 
     return {
-        "epoch": now,
+        "epoch": target,
         "positions": [
             {
                 "object_id": p.object_id,
