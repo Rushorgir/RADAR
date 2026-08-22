@@ -122,6 +122,9 @@
 .status-dot,
 .legend-dot,
 .risk-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.object-tooltip { position: absolute; z-index: 45; min-width: 184px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; border-left: 2px solid var(--tooltip-color); pointer-events: none; font: 9px var(--font-mono); color: var(--text-secondary); transform: translateZ(0); }
+.tooltip-title { color: var(--text-primary); font: 600 12px var(--font-display); letter-spacing: .03em; }
+.tooltip-type { font-size: 9px; letter-spacing: .1em; }
 
 .left-rail-label { display: none; }
 
@@ -193,8 +196,9 @@
 }
 .legend-title { margin-right: auto; }
 .legend-item { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 10px; text-transform: uppercase; }
+.legend-icon { width: 22px; height: 22px; object-fit: contain; }
 .risk-critical { background: var(--risk-critical); }
-.risk-high { background: var(--risk-elevated); }
+.risk-high { background: var(--risk-high); }
 .risk-medium { background: var(--risk-medium); }
 .risk-low { background: var(--risk-nominal); }
 

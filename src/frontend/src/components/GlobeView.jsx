@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as Cesium from "cesium";
+import {
+  getBaseIconScale,
+  getObjectIcon,
+  getSelectionRing,
+  getTooltipData,
+  getVisualMeta,
+  getVisualRiskTier,
+  getWarningRing,
+  isAnimatedRisk,
+} from "../utils/objectVisuals";
 
 // Zoom slider range. NaturalEarthII (see the imagery provider below) is a
 // low-resolution whole-Earth texture, not a tiled high-detail basemap -- it
@@ -55,18 +65,44 @@ function sliderPctFromHeight(heightM) {
 // globe in frame -- verified visually, not a documented Cesium constant.
 const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, IMAGERY_LIMIT_HEIGHT_M);
 
+function animationPhase(time, periodSeconds) {
+  return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
+}
+
+function animatedScale(object, baseScale) {
+  if (!isAnimatedRisk(object)) return baseScale;
+  const tier = getVisualRiskTier(object);
+  const period = tier === "critical" ? 1 : tier === "high" ? 2.1 : 3.5;
+  const amplitude = tier === "critical" ? 0.12 : tier === "high" ? 0.07 : 0.035;
+  return new Cesium.CallbackProperty((time) => {
+    const breathe = Math.sin(animationPhase(time, period));
+    return baseScale * (1 + breathe * amplitude);
+  }, false);
+}
+
+function animatedRingScale(object) {
+  const tier = getVisualRiskTier(object);
+  const period = tier === "critical" ? 1 : 2.1;
+  const amplitude = tier === "critical" ? 0.18 : 0.1;
+  return new Cesium.CallbackProperty((time) => {
+    const breathe = (Math.sin(animationPhase(time, period)) + 1) / 2;
+    return 0.58 + breathe * amplitude;
+  }, false);
+}
+
+function animatedRingColor(object, color) {
+  const tier = getVisualRiskTier(object);
+  const period = tier === "critical" ? 1 : 2.1;
+  const base = Cesium.Color.fromCssColorString(color);
+  return new Cesium.CallbackProperty((time) => {
+    const pulse = (Math.sin(animationPhase(time, period)) + 1) / 2;
+    const alpha = tier === "critical" ? 0.22 + pulse * 0.5 : 0.16 + pulse * 0.3;
+    return base.withAlpha(alpha);
+  }, false);
+}
+
 // Resolve a CSS variable to a concrete color the Cesium canvas can use
 // (the canvas can't consume var(--x) directly, only the resolved value).
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-function riskCssVarName(tier) {
-  if (tier === "critical") return "--risk-critical";
-  if (tier === "elevated") return "--risk-elevated";
-  return "--risk-nominal";
-}
-
 export default function GlobeView({ objects, mode, selectedObjectId, onSelectObject }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -82,6 +118,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
   // some *other* camera change (e.g. clicking +/- clamped at a stale 0%,
   // which is exactly the bug this comment is here to prevent regressing).
   const [zoomPct, setZoomPct] = useState(sliderPctFromHeight(IMAGERY_LIMIT_HEIGHT_M));
+  const [tooltip, setTooltip] = useState(null);
 
   useEffect(() => {
     onSelectObjectRef.current = onSelectObject;
@@ -174,20 +211,29 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     viewer.screenSpaceEventHandler.setInputAction((movement) => {
       const picked = viewer.scene.pick(movement.endPosition);
       const nextEntity = Cesium.defined(picked) && picked.id?.radarId ? picked.id : null;
-      const previousEntity = hoveredEntityRef.current;
-      if (previousEntity && previousEntity !== nextEntity) {
-        previousEntity.point.pixelSize = previousEntity._radarBasePixelSize;
-        previousEntity.point.outlineWidth = previousEntity._radarBaseOutlineWidth;
-      }
-      if (nextEntity && nextEntity !== previousEntity) {
-        nextEntity._radarBasePixelSize = nextEntity.point.pixelSize.getValue?.() ?? nextEntity.point.pixelSize;
-        nextEntity._radarBaseOutlineWidth = nextEntity.point.outlineWidth.getValue?.() ?? nextEntity.point.outlineWidth;
-        nextEntity.point.pixelSize = nextEntity._radarBasePixelSize + 6;
-        nextEntity.point.outlineWidth = 2;
-      }
       hoveredEntityRef.current = nextEntity;
+      if (nextEntity) {
+        const position = nextEntity.position.getValue(viewer.clock.currentTime);
+        const screenPosition = viewer.scene.cartesianToCanvasCoordinates(position);
+        if (screenPosition) {
+          setTooltip({ ...getTooltipData(nextEntity.radarObject), x: screenPosition.x, y: screenPosition.y });
+        }
+      } else {
+        setTooltip(null);
+      }
       viewer.canvas.classList.toggle("is-object-hovered", Boolean(nextEntity));
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+    const updateTooltipPosition = () => {
+      const entity = hoveredEntityRef.current;
+      if (!entity) return;
+      const position = entity.position.getValue(viewer.clock.currentTime);
+      const screenPosition = viewer.scene.cartesianToCanvasCoordinates(position);
+      if (screenPosition) {
+        setTooltip((current) => current ? { ...current, x: screenPosition.x, y: screenPosition.y } : current);
+      }
+    };
+    viewer.camera.changed.addEventListener(updateTooltipPosition);
 
     // Cesium's canvas gives no visual cue that dragging pans the globe --
     // toggle a grab/grabbing cursor the way any other draggable surface would.
@@ -213,6 +259,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
       destroyed = true;
       canvas.removeEventListener("mousedown", startDrag);
       window.removeEventListener("mouseup", endDrag);
+      viewer.camera.changed.removeEventListener(updateTooltipPosition);
       viewer.camera.changed.removeEventListener(syncSliderToCamera);
       viewer.destroy();
       viewerRef.current = null;
@@ -235,34 +282,56 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
         obj.altitude_km * 1000
       );
 
-      const isDebris = obj.type === "debris";
-      const baseColor = isDebris ? cssVar("--debris-dot") : cssVar("--signal");
-      const riskColor = cssVar(riskCssVarName(obj.risk_tier));
-
-      const isFlagged = obj.risk_tier === "critical" || obj.risk_tier === "elevated";
-      const color = isFlagged ? riskColor : baseColor;
-      const pixelSize = isFlagged ? (isDebris ? 8 : 11) : isDebris ? 4 : 7;
-
       const entity = viewer.entities.add({
         position,
-        point: {
-          pixelSize,
-          color: Cesium.Color.fromCssColorString(color).withAlpha(
-            mode === "threat" && !isFlagged ? 0.18 : 0.95
-          ),
-          outlineColor: Cesium.Color.fromCssColorString(color),
-          outlineWidth: isFlagged ? 1.5 : 0,
-          // 0 = always depth-test against the globe (Cesium's own inverted
-          // convention: this was POSITIVE_INFINITY, i.e. "never depth-test,
-          // always render on top" -- which made every object visible even
-          // on the far side of the Earth, through the globe itself.
+        billboard: {
+          image: getObjectIcon(obj),
+          scale: animatedScale(obj, getBaseIconScale(obj)),
+          scaleByDistance: new Cesium.NearFarScalar(4000000, 1.15, 40000000, 0.55),
+          translucencyByDistance: new Cesium.NearFarScalar(4000000, mode === "threat" && getVisualRiskTier(obj) === "low" ? 0.25 : 1, 40000000, 0.8),
           disableDepthTestDistance: 0,
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
         },
       });
       entity.radarId = obj.object_id;
+      entity.radarObject = obj;
       entityMapRef.current.set(String(obj.object_id), entity);
+
+      const tier = getVisualRiskTier(obj);
+      const meta = getVisualMeta(obj);
+      if (tier === "high" || tier === "critical") {
+        const warningRing = viewer.entities.add({
+          position,
+          billboard: {
+            image: getWarningRing(obj),
+            scale: animatedRingScale(obj),
+            color: animatedRingColor(obj, meta.color),
+            scaleByDistance: new Cesium.NearFarScalar(4000000, 1.15, 40000000, 0.5),
+            disableDepthTestDistance: 0,
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          },
+        });
+        warningRing.radarWarningRing = true;
+        warningRing.radarId = obj.object_id;
+        warningRing.radarObject = obj;
+      }
+
+      if (String(obj.object_id) === String(selectedObjectId)) {
+        const selectionRing = viewer.entities.add({
+          position,
+          billboard: {
+            image: getSelectionRing(obj),
+            scale: 0.7,
+            color: Cesium.Color.fromCssColorString(meta.color).withAlpha(0.9),
+            disableDepthTestDistance: 0,
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          },
+        });
+        selectionRing.radarId = obj.object_id;
+        selectionRing.radarObject = obj;
+      }
     });
-  }, [objects, mode]);
+  }, [objects, mode, selectedObjectId]);
 
   // ---- fly to selected object ----
   useEffect(() => {
@@ -327,6 +396,20 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+
+      {tooltip && (
+        <div
+          className="object-tooltip hud-frame"
+          style={{ left: tooltip.x + 14, top: tooltip.y + 14, "--tooltip-color": tooltip.color }}
+          role="status"
+        >
+          <strong className="tooltip-title">{tooltip.id}</strong>
+          <span className="tooltip-type" style={{ color: tooltip.color }}>{tooltip.type}</span>
+          <span>ALTITUDE: {tooltip.altitude}</span>
+          <span>VELOCITY: {tooltip.velocity}</span>
+          <span>RISK: {tooltip.label.toUpperCase()}</span>
+        </div>
+      )}
 
       <div
         className="hud-frame globe-zoom-control"
