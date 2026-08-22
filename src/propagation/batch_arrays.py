@@ -149,6 +149,16 @@ def propagate_catalog_arrays(
     covariances = None
     if attach_covariance:
         covariances = np.zeros((n_objects, n_steps, 6, 6))
+
+        # (n_objects, n_steps) hours-since-TLE-epoch, computed as one broadcast
+        # subtraction instead of a per-object x per-timestep Python loop over
+        # datetime subtraction -- at 800 objects x ~4300 timesteps that loop
+        # was ~3.4M individual `(datetime - datetime).total_seconds()` calls,
+        # comparable in cost to the SGP4 propagation itself.
+        epoch_seconds = np.array([e.timestamp() for e in epochs])
+        tle_epoch_seconds = np.array([tle.epoch.timestamp() for tle in parsed_tles])
+        hours_since_epoch = (epoch_seconds[None, :] - tle_epoch_seconds[:, None]) / 3600.0
+
         # Group objects by type so each DEFAULT_SIGMA_MODELS variant is applied
         # in one vectorized call across every (object, timestep) pair of that
         # type, rather than one call per object.
@@ -160,11 +170,6 @@ def propagate_catalog_arrays(
             combined_mask = row_mask & ok_mask
             if not np.any(combined_mask):
                 continue
-
-            hours_since_epoch = np.empty((n_objects, n_steps))
-            for r in rows:
-                epoch_arr = np.array([(e - parsed_tles[r].epoch).total_seconds() / 3600.0 for e in epochs])
-                hours_since_epoch[r, :] = epoch_arr
 
             flat_hours = hours_since_epoch[combined_mask]
             flat_pos = positions[combined_mask]
