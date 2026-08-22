@@ -10,7 +10,7 @@ These models define the EXACT data shapes flowing between:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -150,7 +150,12 @@ class ConjunctionEvent(BaseModel):
     secondary_cross_section_area_m2: Optional[float] = Field(None, ge=0, description="Secondary object cross-sectional area (m²)")
     orbital_regime: Optional[OrbitalRegime] = Field(None, description="Encounter orbital regime")
     validity_flags: ValidityFlags = Field(default_factory=ValidityFlags)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # timezone.utc, not the naive datetime.utcnow() -- tca (above) is always
+    # tz-aware (set from an aware propagation epoch grid), and AI-3's
+    # predictor subtracts created_at from tca to get time-to-TCA; naive
+    # minus aware raises TypeError: can't subtract offset-naive and
+    # offset-aware datetimes.
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ── AI-3 → Backend: Risk-Scored Event ─────────────────────────────────────────

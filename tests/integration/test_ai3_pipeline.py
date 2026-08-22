@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
 from ml.ranking.predictor import MLRiskPredictor
 from shared.interfaces.contracts import ConjunctionEvent, RiskCategory, OrbitalRegime, PropagatedState, ObjectType
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def test_fallback_end_to_end_pipeline():
     """
@@ -32,7 +32,12 @@ def test_fallback_end_to_end_pipeline():
     )
     
     # 2. Simulate AI-2 Conjunction Event Creation
-    tca_time = datetime.utcnow() + timedelta(days=2.5)
+    # tz-aware, matching real production ConjunctionEvents (AI-2's pipeline
+    # builds tca from an aware propagation epoch grid) and ConjunctionEvent's
+    # own created_at default (datetime.now(timezone.utc)) -- extractor.py
+    # subtracts the two to get time-to-TCA, which raises TypeError if one
+    # side is naive and the other aware.
+    tca_time = datetime.now(timezone.utc) + timedelta(days=2.5)
     
     conjunction_event = ConjunctionEvent(
         primary_id=primary_state.object_id,
