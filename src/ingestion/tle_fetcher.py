@@ -14,6 +14,7 @@ Celestrak GP API reference: https://celestrak.org/NORAD/documentation/gp-data-fo
 
 from __future__ import annotations
 
+import random
 import time
 from typing import Optional
 
@@ -173,15 +174,31 @@ def filter_leo(parsed_tles: list[ParsedTLE], max_apogee_altitude_km: float = 200
     return kept
 
 
-def build_default_dataset(cache: Optional[TLECache] = None, target_count: int = 800) -> list[ParsedTLE]:
+def build_default_dataset(
+    cache: Optional[TLECache] = None,
+    target_count: int = 800,
+    random_seed: int = 42,
+) -> list[ParsedTLE]:
     """
     Assemble the working LEO dataset (mix of payloads, debris, rocket bodies)
     from the curated CELESTRAK_GROUPS, capped at `target_count` objects to stay
     within the 500-1000 object propagation target.
+
+    Objects are shuffled (with a fixed seed, for reproducible test runs) before
+    capping rather than simply truncated in fetch order: `fetch_groups` returns
+    objects group-by-group, so a plain `[:target_count]` slice would silently
+    let whichever group happens to fetch first (or fail -- e.g. Celestrak's
+    "active" group is large and easily throttled) dominate or starve the final
+    mix. A shuffle keeps the capped sample representative of whatever mix of
+    payloads/debris actually came back, instead of being an accident of fetch
+    order/availability.
     """
     cache = cache or TLECache()
     all_objects = fetch_groups(list(CELESTRAK_GROUPS.values()), cache=cache)
     leo_objects = filter_leo(all_objects)
+
+    random.Random(random_seed).shuffle(leo_objects)
+
     logger.info(
         f"[tle_fetcher] assembled dataset: {len(all_objects)} fetched -> "
         f"{len(leo_objects)} LEO -> capped at {min(len(leo_objects), target_count)}"

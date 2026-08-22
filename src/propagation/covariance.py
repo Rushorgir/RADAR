@@ -102,6 +102,62 @@ def estimate_covariance_6x6(
     return rotation_6x6 @ cov_ric @ rotation_6x6.T
 
 
+def estimate_covariance_6x6_batch(
+    positions_km: np.ndarray,
+    velocities_km_s: np.ndarray,
+    hours_since_epoch: np.ndarray,
+    object_type: ObjectType = ObjectType.UNKNOWN,
+    sigma_model: Optional[RICSigmaModel] = None,
+) -> np.ndarray:
+    """
+    Vectorized form of `estimate_covariance_6x6` for N states at once (all from
+    the same object/sigma model, e.g. one object's whole propagated trajectory).
+    `positions_km` / `velocities_km_s`: (N,3). `hours_since_epoch`: (N,).
+    Returns (N,6,6).
+
+    Calling the scalar version once per state in a Python loop is the wrong
+    shape for this at catalog scale: batch-propagating ~800 objects over a
+    72h/60s grid means ~3.4M individual states, and 3.4M small numpy calls is
+    dominated by per-call Python/numpy overhead rather than actual math. This
+    does the same computation with array ops instead of a per-row loop.
+    """
+    model = sigma_model or DEFAULT_SIGMA_MODELS.get(object_type, RICSigmaModel())
+    n = positions_km.shape[0]
+    t = np.maximum(hours_since_epoch, 0.0)
+
+    pos_sigma = np.stack([
+        model.sigma_radial_km0 + model.growth_radial_km_per_hr * t,
+        model.sigma_intrack_km0 + model.growth_intrack_km_per_hr * t,
+        model.sigma_crosstrack_km0 + model.growth_crosstrack_km_per_hr * t,
+    ], axis=1)  # (N, 3)
+
+    vel_scale = 1.0 + model.velocity_growth_fraction_per_hr * t  # (N,)
+    base_vel_sigma = np.array([
+        model.sigma_vel_radial_km_s0, model.sigma_vel_intrack_km_s0, model.sigma_vel_crosstrack_km_s0,
+    ])
+    vel_sigma = vel_scale[:, None] * base_vel_sigma[None, :]  # (N, 3)
+
+    cov_ric = np.zeros((n, 6, 6))
+    diag_idx = np.arange(3)
+    cov_ric[:, diag_idx, diag_idx] = pos_sigma ** 2
+    cov_ric[:, diag_idx + 3, diag_idx + 3] = vel_sigma ** 2
+
+    r = positions_km
+    v = velocities_km_s
+    r_hat = r / np.linalg.norm(r, axis=1, keepdims=True)
+    h = np.cross(r, v)
+    c_hat = h / np.linalg.norm(h, axis=1, keepdims=True)
+    i_hat = np.cross(c_hat, r_hat)
+    eci_to_ric = np.stack([r_hat, i_hat, c_hat], axis=1)  # (N, 3, 3)
+    ric_to_eci = np.transpose(eci_to_ric, (0, 2, 1))
+
+    rotation_6x6 = np.zeros((n, 6, 6))
+    rotation_6x6[:, :3, :3] = ric_to_eci
+    rotation_6x6[:, 3:, 3:] = ric_to_eci
+
+    return rotation_6x6 @ cov_ric @ np.transpose(rotation_6x6, (0, 2, 1))
+
+
 def is_positive_definite(covariance_6x6: np.ndarray, tol: float = 1e-12) -> bool:
     """Cheap positive-definiteness check (Cholesky) used to flag degenerate covariances."""
     try:

@@ -8,56 +8,54 @@ tracked LEO objects, per src/propagation/README.md) over a shared timestep grid,
 attaches an estimated covariance to every state (src/propagation/covariance.py),
 and hands back a BatchPropagationResult ready for AI-2's conjunction screening.
 
-Performance note: the naive approach -- propagate each object, then call the
-TEME->ECI astropy frame transform once per object -- pays astropy's per-call
-precession/nutation computation cost redundantly for every object even though
-every object shares the exact same timestep grid (measured: ~800 objects x
-4321 steps took tens of minutes this way). Instead, we compute the TEME->ECI
-rotation matrix ONCE per timestep (src/shared/frames/transforms.teme_to_eci_rotation_matrices)
-and apply it to each object's raw TEME output with plain numpy, which turns an
-O(n_objects) astropy cost into O(1) -- reducing the same workload to seconds.
+Performance notes (measured, not assumed -- see AI1_IMPLEMENTATION_NOTES.md for
+the full story):
 
-Threads (not multiprocessing) are used for the per-object SGP4 propagation
-step: `sgp4_array` is numeric/vectorized and releases the GIL for its bulk of
-the work, so threads give a real speedup without multiprocessing's pickling
-overhead for hundreds of small TLE objects.
+1. TEME->ECI frame conversion: computing astropy's TEME->GCRS rotation once per
+   *object* (paying its precession/nutation/IERS-lookup cost 800 times for
+   identical timestamps) instead of once per *timestep* was the single biggest
+   cost in an early version of this module. Fixed by computing the rotation
+   matrix once per timestep (src/shared/frames/transforms.teme_to_eci_rotation_matrices)
+   and applying it to every object with plain numpy (apply_rotation_batch):
+   O(n_objects) astropy calls -> O(1).
+
+2. Julian-date conversion: each object independently rebuilding the same (jd,
+   fr) array for an identical shared epoch grid, via a per-epoch Python loop,
+   redundantly repeated the same ~4,300-iteration loop 800 times. Fixed by
+   `build_jd_fr_grid` computing it once (see sgp4_engine.py) and passing the
+   shared arrays to every object's `Satrec.sgp4_array` call.
+
+3. Covariance estimation: calling the covariance estimator once per propagated
+   *state* (~3.4M calls for an 800-object/72h/60s catalog) is dominated by
+   Python/numpy call overhead, not the actual math. Fixed by
+   `estimate_covariance_6x6_batch` computing an object's whole trajectory's
+   covariance in one vectorized call.
+
+4. Threading: an earlier version ran per-object SGP4 propagation in a
+   ThreadPoolExecutor, on the assumption that `sgp4_array` (implemented in C)
+   would release the GIL for the bulk of its work. Measured evidence says
+   otherwise for this workload -- the same 800-object catalog that runs
+   sequentially end-to-end in well under a minute took 5+ minutes with an
+   8-worker thread pool, consistent with GIL contention between worker
+   threads dominating any real parallel work. This module therefore runs
+   sequentially; do not reintroduce a thread/process pool here without
+   re-measuring on the actual target workload first.
 """
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Callable, Optional
 
 import numpy as np
 from loguru import logger
 
 from src.ingestion.models import ParsedTLE
-from src.propagation.covariance import estimate_covariance_6x6, is_positive_definite
+from src.propagation.covariance import estimate_covariance_6x6_batch, is_positive_definite
 from src.propagation.models import BatchPropagationResult, PropagationError, SGP4ErrorCode, TrajectoryResult
-from src.propagation.sgp4_engine import SGP4Propagator, build_jd_fr_grid
-from src.shared.frames.transforms import StateVector, apply_rotation_batch, teme_to_eci_rotation_matrices
+from src.propagation.sgp4_engine import SGP4Propagator, build_epoch_grid, build_jd_fr_grid
+from src.shared.frames.transforms import apply_rotation_batch, teme_to_eci_rotation_matrices
 from src.shared.interfaces.contracts import PropagatedState
-
-
-def _build_epoch_grid(start: datetime, end: datetime, step_s: float) -> list[datetime]:
-    if end < start:
-        raise ValueError("end must be >= start")
-    if step_s <= 0:
-        raise ValueError("step_s must be positive")
-    n_steps = int((end - start).total_seconds() // step_s) + 1
-    return [start + timedelta(seconds=i * step_s) for i in range(n_steps)]
-
-
-def _propagate_one_raw(parsed_tle: ParsedTLE, jds: np.ndarray, frs: np.ndarray):
-    """
-    SGP4-only (still TEME, no frame conversion) propagation for one object,
-    against a (jd, fr) grid precomputed once for the whole catalog (see
-    `propagate_catalog`) rather than rebuilt per object.
-    """
-    propagator = SGP4Propagator.from_tle(parsed_tle)
-    r_teme, v_teme, errors = propagator.propagate_teme_raw_with_grid(jds, frs)
-    return parsed_tle, r_teme, v_teme, errors
 
 
 def _build_trajectory(
@@ -72,28 +70,33 @@ def _build_trajectory(
     ok_mask = errors == 0
     result = TrajectoryResult(object_id=object_id, object_name=parsed_tle.name, object_type=parsed_tle.object_type)
 
-    for i, (epoch, ok) in enumerate(zip(epochs, ok_mask)):
+    for i, ok in enumerate(ok_mask):
         if not ok:
             result.errors.append(
                 PropagationError(
                     object_id=object_id,
-                    epoch=epoch,
+                    epoch=epochs[i],
                     error_code=SGP4ErrorCode(int(errors[i])),
                     message=SGP4ErrorCode(int(errors[i])).description,
                 )
             )
-            continue
 
-        covariance = None
-        if attach_covariance:
-            hours_since_epoch = (epoch - parsed_tle.epoch).total_seconds() / 3600.0
-            sv = StateVector.from_lists(pos_eci[i].tolist(), vel_eci[i].tolist())
-            covariance = estimate_covariance_6x6(sv, hours_since_epoch, parsed_tle.object_type).tolist()
+    covariances: Optional[np.ndarray] = None
+    if attach_covariance and np.any(ok_mask):
+        # One vectorized call for every OK state of this object, instead of a
+        # per-state call (see estimate_covariance_6x6_batch docstring for why
+        # that matters at catalog scale).
+        hours_since_epoch = np.array([(e - parsed_tle.epoch).total_seconds() / 3600.0 for e, ok in zip(epochs, ok_mask) if ok])
+        covariances = estimate_covariance_6x6_batch(pos_eci[ok_mask], vel_eci[ok_mask], hours_since_epoch, parsed_tle.object_type)
+
+    ok_indices = np.flatnonzero(ok_mask)
+    for row, i in enumerate(ok_indices):
+        covariance = covariances[row].tolist() if covariances is not None else None
 
         result.states.append(
             PropagatedState(
                 object_id=object_id,
-                epoch=epoch,
+                epoch=epochs[i],
                 position_eci_km=pos_eci[i].tolist(),
                 velocity_eci_km_s=vel_eci[i].tolist(),
                 covariance_6x6=covariance,
@@ -113,7 +116,6 @@ def propagate_catalog(
     end: datetime,
     step_s: float = 60.0,
     attach_covariance: bool = True,
-    max_workers: int = 8,
     progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> BatchPropagationResult:
     """
@@ -123,13 +125,15 @@ def propagate_catalog(
     `errors`, so downstream consumers can distinguish "no conjunctions found"
     from "propagation failed".
 
-    `progress_callback(done, total)` is invoked after each object's raw SGP4
-    propagation finishes, if given.
+    Runs sequentially -- see the module docstring for why threading measured
+    *worse* than sequential for this workload.
+
+    `progress_callback(done, total)` is invoked after each object finishes, if given.
     """
     if not parsed_tles:
         return BatchPropagationResult(epochs=[], trajectories={})
 
-    epochs = _build_epoch_grid(start, end, step_s)
+    epochs = build_epoch_grid(start, end, step_s)
     total = len(parsed_tles)
 
     # Computed ONCE and shared by every object below (see build_jd_fr_grid /
@@ -137,33 +141,28 @@ def propagate_catalog(
     jds, frs = build_jd_fr_grid(epochs)
     rotations = teme_to_eci_rotation_matrices(epochs)
 
-    # Step 1: cheap, parallelizable per-object SGP4 propagation (still TEME).
-    raw_results = []
-    done = 0
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_propagate_one_raw, tle, jds, frs): tle for tle in parsed_tles}
-        for future in as_completed(futures):
-            tle = futures[future]
-            try:
-                raw_results.append(future.result())
-            except Exception as exc:  # noqa: BLE001 - isolate one object's crash from the whole batch
-                logger.error(f"[batch_propagator] object {tle.norad_id} raised unexpectedly during SGP4: {exc}")
-                raw_results.append((tle, np.zeros((len(epochs), 3)), np.zeros((len(epochs), 3)), np.full(len(epochs), -1)))
-            done += 1
-            if progress_callback:
-                progress_callback(done, total)
-
-    # Step 2: apply the precomputed rotation to each object (pure numpy, cheap).
     trajectories: dict[str, TrajectoryResult] = {}
-    for parsed_tle, r_teme, v_teme, errors in raw_results:
-        ok_mask = errors == 0
-        pos_eci = np.zeros_like(r_teme)
-        vel_eci = np.zeros_like(v_teme)
-        if np.any(ok_mask):
-            pos_eci[ok_mask], vel_eci[ok_mask] = apply_rotation_batch(rotations[ok_mask], r_teme[ok_mask], v_teme[ok_mask])
+    for done, parsed_tle in enumerate(parsed_tles, start=1):
+        try:
+            propagator = SGP4Propagator.from_tle(parsed_tle)
+            r_teme, v_teme, errors = propagator.propagate_teme_raw_with_grid(jds, frs)
 
-        trajectory = _build_trajectory(parsed_tle, epochs, pos_eci, vel_eci, errors, attach_covariance)
+            ok_mask = errors == 0
+            pos_eci = np.zeros_like(r_teme)
+            vel_eci = np.zeros_like(v_teme)
+            if np.any(ok_mask):
+                pos_eci[ok_mask], vel_eci[ok_mask] = apply_rotation_batch(rotations[ok_mask], r_teme[ok_mask], v_teme[ok_mask])
+
+            trajectory = _build_trajectory(parsed_tle, epochs, pos_eci, vel_eci, errors, attach_covariance)
+        except Exception as exc:  # noqa: BLE001 - isolate one object's crash from the whole batch
+            logger.error(f"[batch_propagator] object {parsed_tle.norad_id} raised unexpectedly: {exc}")
+            trajectory = TrajectoryResult(
+                object_id=str(parsed_tle.norad_id), object_name=parsed_tle.name, object_type=parsed_tle.object_type
+            )
+
         trajectories[trajectory.object_id] = trajectory
+        if progress_callback:
+            progress_callback(done, total)
 
     canonical_epochs: list[datetime] = []
     for traj in trajectories.values():
