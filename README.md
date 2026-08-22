@@ -31,7 +31,7 @@ OrbitGuard is a modular Space Situational Awareness (SSA) system that:
 
 To maintain modularity and avoid git merge conflicts while working in parallel:
 
-1. **Work in your designated directory**: Each contributor MUST write their module code exclusively inside their assigned directory under `src/` as mapped in the table above.
+1. **Work in your designated directory**: Each contributor MUST write their module code exclusively inside their assigned directory under `src/` as mapped in the table above. See [TEAM_DIRECTORY_GUIDE.md](TEAM_DIRECTORY_GUIDE.md) for full folder & component breakdowns.
 2. **Do NOT modify other members' folders**: If you need functionality from another module, request an update via PR or use the agreed interface contracts in `src/shared/interfaces/contracts.py`.
 3. **Shared Contracts**: `src/shared/` contains common constants and Pydantic interface contracts. Any proposed breaking changes to `src/shared/` MUST be announced and agreed upon by the team before committing.
 4. **Unit Tests**: Place your unit tests in your dedicated subfolder under `tests/unit/<module_name>/`.
