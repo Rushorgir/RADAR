@@ -149,6 +149,12 @@ export default function App() {
               simulationClock.currentTime = Cesium.JulianDate.fromDate(date);
               setCurrentTime(date);
             }}
+            rangeStart={Cesium.JulianDate.toDate(simulationClock.startTime)}
+            rangeStop={Cesium.JulianDate.toDate(simulationClock.stopTime)}
+            onSeek={(date) => {
+              simulationClock.currentTime = Cesium.JulianDate.fromDate(date);
+              setCurrentTime(date);
+            }}
           />
         }
       />

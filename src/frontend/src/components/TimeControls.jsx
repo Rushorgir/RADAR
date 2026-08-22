@@ -45,7 +45,7 @@ function CalendarPopover({ date, onSelectDate }) {
   );
 }
 
-export default function TimeControls({ currentTime, playing, playbackRate, onTogglePlay, onSetRate, onStep, onSelectDate }) {
+export default function TimeControls({ currentTime, playing, playbackRate, onTogglePlay, onSetRate, onStep, onSelectDate, rangeStart, rangeStop, onSeek }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const rateMagnitude = Math.abs(playbackRate);
   const rateLabel = `${playbackRate < 0 ? "−" : "×"}${rateMagnitude}`;
@@ -61,6 +61,15 @@ export default function TimeControls({ currentTime, playing, playbackRate, onTog
         <strong className="mono">{formatTime(currentTime)}</strong>
         <span className="eyebrow">{formatDate(currentTime)} // {rateLabel} SIM</span>
       </div>
+      <input
+        className="time-scrubber"
+        type="range"
+        min={rangeStart.getTime()}
+        max={rangeStop.getTime()}
+        value={Math.min(rangeStop.getTime(), Math.max(rangeStart.getTime(), currentTime.getTime()))}
+        onChange={(event) => onSeek(new Date(Number(event.target.value)))}
+        aria-label="Scrub simulation time"
+      />
       {calendarOpen && <CalendarPopover date={currentTime} onSelectDate={onSelectDate} />}
       <div className="time-rate-presets" aria-label="Playback rate presets">
         {RATE_STEPS.map((rate) => <button type="button" className={rateMagnitude === rate && playbackRate > 0 ? "rate-preset active" : "rate-preset"} key={rate} onClick={() => onSetRate(rate)}>{rate}×</button>)}

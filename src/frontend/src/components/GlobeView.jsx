@@ -67,22 +67,37 @@ const STANDARD_GLOBE_HEIGHT_M = 19000000;
 const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GLOBE_HEIGHT_M);
 const POSITION_REFERENCE_MS = Date.now();
 
-function clockDrivenObjectPosition(object) {
+function orbitalPositionAt(object, time) {
   const radiusM = (6371 + Number(object.altitude_km || 550)) * 1000;
   const startingLongitude = Cesium.Math.toRadians(Number(object.longitude || 0));
   const inclination = Cesium.Math.toRadians(Math.min(88, Math.max(8, Math.abs(Number(object.latitude || 30)))));
   const periodSeconds = 5100 + ((Number(object.altitude_km || 550) - 400) / 800) * 1800;
   const phaseOffset = (Number(object.object_id) || 0) % 360;
+  const elapsedSeconds = (Cesium.JulianDate.toDate(time).getTime() - POSITION_REFERENCE_MS) / 1000;
+  const angle = startingLongitude + phaseOffset * Math.PI / 180 + elapsedSeconds * 2 * Math.PI / periodSeconds;
+  return new Cesium.Cartesian3(
+    radiusM * Math.cos(angle),
+    radiusM * Math.sin(angle) * Math.cos(inclination),
+    radiusM * Math.sin(angle) * Math.sin(inclination),
+  );
+}
 
-  return new Cesium.CallbackProperty((time) => {
-    const elapsedSeconds = (Cesium.JulianDate.toDate(time).getTime() - POSITION_REFERENCE_MS) / 1000;
-    const angle = startingLongitude + phaseOffset * Math.PI / 180 + elapsedSeconds * 2 * Math.PI / periodSeconds;
-    return new Cesium.Cartesian3(
-      radiusM * Math.cos(angle),
-      radiusM * Math.sin(angle) * Math.cos(inclination),
-      radiusM * Math.sin(angle) * Math.sin(inclination),
+function sampledObjectPosition(object, simulationClock) {
+  const position = new Cesium.SampledPositionProperty();
+  const sampleStepSeconds = 6 * 60 * 60;
+  for (let seconds = 0; seconds <= 30 * 24 * 60 * 60; seconds += sampleStepSeconds) {
+    const sampleTime = Cesium.JulianDate.addSeconds(
+      simulationClock.startTime,
+      seconds,
+      new Cesium.JulianDate(),
     );
-  }, false);
+    position.addSample(sampleTime, orbitalPositionAt(object, sampleTime));
+  }
+  position.setInterpolationOptions({
+    interpolationAlgorithm: Cesium.LinearApproximation,
+    interpolationDegree: 1,
+  });
+  return position;
 }
 
 function animationPhase(time, periodSeconds) {
@@ -297,7 +312,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     entityMapRef.current.clear();
 
     objects.forEach((obj) => {
-      const position = clockDrivenObjectPosition(obj);
+      const position = sampledObjectPosition(obj, simulationClock);
 
       const entity = viewer.entities.add({
         position,
@@ -348,7 +363,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
         selectionRing.radarObject = obj;
       }
     });
-  }, [objects, mode, selectedObjectId]);
+  }, [objects, mode, selectedObjectId, simulationClock]);
 
   // ---- fly to selected object ----
   useEffect(() => {
