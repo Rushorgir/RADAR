@@ -79,6 +79,7 @@ RADAR/
 ├── sources/                # Original problem statement PDFs
 ├── requirements.txt        # Python dependencies
 ├── pyproject.toml          # Project metadata
+├── AI1_IMPLEMENTATION_NOTES.md  # AI-1 module deep-dive: what was built, how it was verified, perf notes
 └── docker-compose.yml      # Deployment orchestration
 ```
 
@@ -89,16 +90,18 @@ RADAR/
 > **Critical**: All team members must adhere to these data schemas. Changes require team-wide notification.
 
 ### AI-1 → AI-2 (Propagation → Conjunction)
+> Field names below match `PropagatedState` in `src/shared/interfaces/contracts.py` exactly — that file is the source of truth; this is a human-readable mirror of it.
 ```json
 {
   "object_id": "string (NORAD catalog ID)",
   "epoch": "ISO-8601 datetime",
-  "position_eci": [x, y, z],          // km, J2000 ECI frame
-  "velocity_eci": [vx, vy, vz],       // km/s
-  "covariance_6x6": [[...]],          // 6×6 matrix (km, km/s units)
-  "hard_body_radius": 0.005,          // km
-  "cross_section_area": 1.0,          // m²
-  "object_type": "PAYLOAD | DEBRIS | ROCKET_BODY"
+  "position_eci_km": [x, y, z],        // km, J2000 ECI frame
+  "velocity_eci_km_s": [vx, vy, vz],   // km/s
+  "covariance_6x6": [[...]],           // 6×6 matrix (km, km/s units), or null if unavailable
+  "hard_body_radius_km": 0.005,        // km
+  "cross_section_area_m2": 1.0,        // m²
+  "object_type": "PAYLOAD | DEBRIS | ROCKET_BODY | UNKNOWN",
+  "object_name": "string | null"
 }
 ```
 
@@ -111,7 +114,7 @@ RADAR/
   "tca": "ISO-8601 datetime",
   "miss_distance_km": 0.123,
   "relative_velocity_km_s": 7.8,
-  "combined_covariance_enc": [[...]],  // 2×2 encounter-plane covariance
+  "combined_covariance_enc_2x2": [[...]],  // 2×2 encounter-plane covariance
   "pc": 1.23e-5,
   "pc_method": "FOSTER_2D | MONTE_CARLO",
   "validity_flags": {
@@ -134,7 +137,7 @@ RADAR/
     {"feature": "pc", "impact": 0.28}
   ],
   "maneuver_advisory": {
-    "delta_v_ms": 0.15,
+    "delta_v_m_s": 0.15,
     "burn_direction": "ALONG_TRACK",
     "new_miss_distance_km": 2.5,
     "fuel_cost_estimate_kg": 0.02
@@ -159,6 +162,14 @@ cd src/backend && uvicorn api.main:app --reload
 cd src/frontend && npm install && npm run dev
 ```
 
+**Try the AI-1 pipeline standalone** (TLE ingestion → SGP4 propagation → ECI state vectors, no backend/frontend needed — pulls live data from Celestrak):
+
+```bash
+python scripts/run_propagation_pipeline.py --count 800 --hours 72 --step 60
+```
+
+See [AI1_IMPLEMENTATION_NOTES.md](AI1_IMPLEMENTATION_NOTES.md) for what this covers, how it was verified, and a real performance bug (5+ min → ~3-4s at full 800-object scale) that was found and fixed along the way.
+
 ---
 
 ## Key Libraries
@@ -180,7 +191,7 @@ cd src/frontend && npm install && npm run dev
 
 ## References
 
-- ESA Kelvins Collision Avoidance Challenge (2019)
-- Foster, J.L., "A Parametric Analysis of Orbital Debris Collision Probability," NASA
-- Celestrak (celestrak.org) — live TLE data
-- NASA Orbital Debris Program Office & ESA Space Debris Office reports
+- [ESA Kelvins Collision Avoidance Challenge](https://kelvins.esa.int/collision-avoidance-challenge/) (2019)
+- Foster, J.L. & Estes, H.S., "A Parametric Analysis of Orbital Debris Collision Probability and Comparison of Deterministic and Probabilistic Methods," NASA Johnson Space Center, 1992 — [search NASA NTRS](https://ntrs.nasa.gov/search?q=parametric%20analysis%20orbital%20debris%20collision%20probability)
+- [Celestrak](https://celestrak.org/) — live TLE data ([GP data formats](https://celestrak.org/NORAD/documentation/gp-data-formats.php), [TLE format reference](https://celestrak.org/NORAD/documentation/tle-fmt.php))
+- [NASA Orbital Debris Program Office](https://orbitaldebris.jsc.nasa.gov/) & [ESA Space Debris Office](https://www.esa.int/Space_Safety/Space_Debris) reports
