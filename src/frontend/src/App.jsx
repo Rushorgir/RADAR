@@ -9,6 +9,7 @@ import ScanSweep from "./components/ScanSweep";
 import ObjectDetailPanel from "./components/ObjectDetailPanel";
 import PlanetDetailPanel from "./components/PlanetDetailPanel";
 import RiskLegend from "./components/RiskLegend";
+import TimeControls from "./components/TimeControls";
 import { mockObjects, mockRiskList, mockDashboardStats } from "./data/mockData";
 import { buildObjectDetail, normalizeId } from "./utils/objectDetails";
 import { loadLiveDashboardData } from "./utils/liveData";
@@ -20,6 +21,17 @@ export default function App() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [selectedBodyId, setSelectedBodyId] = useState(null);
   const [activeFilters, setActiveFilters] = useState([]);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [playing, setPlaying] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  useEffect(() => {
+    if (!playing) return undefined;
+    const timer = window.setInterval(() => {
+      setCurrentTime((time) => new Date(time.getTime() + playbackRate * 250));
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [playing, playbackRate]);
 
   // Start with mock data so the UI renders immediately; swap in real data
   // from the backend if/when it loads. If the backend isn't running (e.g.
@@ -85,13 +97,18 @@ export default function App() {
   return (
     <div className="radar-shell">
       {isSolar ? (
-        <SolarSystemView selectedBodyId={selectedBodyId} onSelectBody={setSelectedBodyId} />
+        <SolarSystemView
+          selectedBodyId={selectedBodyId}
+          onSelectBody={setSelectedBodyId}
+          simulationTime={currentTime}
+        />
       ) : (
         <GlobeView
           objects={visibleObjects}
           mode={mode}
           selectedObjectId={selectedObjectId}
           onSelectObject={selectObject}
+          simulationTime={currentTime}
         />
       )}
 
@@ -101,6 +118,16 @@ export default function App() {
         overallRiskStatus={dashboardStats.overall_risk_status}
         objects={objects}
         onSelectObject={selectObject}
+        timeControls={
+          <TimeControls
+            currentTime={currentTime}
+            playing={playing}
+            playbackRate={playbackRate}
+            onTogglePlay={() => setPlaying((value) => !value)}
+            onSetRate={setPlaybackRate}
+            onStep={(milliseconds) => setCurrentTime((time) => new Date(time.getTime() + milliseconds))}
+          />
+        }
       />
 
       {mode === "dashboard" && (

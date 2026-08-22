@@ -69,6 +69,25 @@
 .search-result small { margin-top: 3px; color: var(--text-dim); font-size: 9px; }
 .search-risk { color: var(--text-secondary); font: 9px var(--font-mono); text-transform: uppercase; }
 .header-status { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 10px; white-space: nowrap; }
+.time-controls { position: relative; display: flex; align-items: center; gap: 5px; margin: 0 auto; padding: 4px 7px; border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
+.time-readout { min-width: 172px; padding: 0 8px; text-align: center; }
+.time-readout strong { display: block; color: var(--text-primary); font-size: 15px; letter-spacing: .08em; line-height: 1.2; }
+.time-readout .eyebrow { display: block; margin-top: 3px; font-size: 8px; white-space: nowrap; }
+.time-jump-button, .time-rate-button, .time-play-button, .rate-preset { color: var(--text-secondary); background: transparent; border: 1px solid var(--hairline-strong); font: 10px var(--font-mono); }
+.time-jump-button, .time-rate-button { width: 23px; height: 23px; padding: 0; }
+.time-play-button { width: 28px; height: 28px; padding: 0; color: var(--signal); border-color: var(--signal-line); font-size: 13px; }
+.time-jump-button:hover, .time-rate-button:hover, .time-play-button:hover, .rate-preset:hover, .rate-preset.active { color: var(--signal); background: var(--signal-dim); border-color: var(--signal-line); }
+.time-controls button:focus-visible { outline: 2px solid var(--signal-line); outline-offset: 1px; }
+.time-rate-presets { display: flex; gap: 2px; margin-left: 4px; }
+.rate-preset { padding: 3px 4px; font-size: 8px; }
+.calendar-popover { position: absolute; top: calc(100% + 10px); left: 50%; width: 240px; padding: 13px; transform: translateX(-50%); z-index: 50; }
+.calendar-heading { display: flex; flex-direction: column; gap: 4px; padding-bottom: 9px; border-bottom: 1px solid var(--hairline); }
+.calendar-heading strong { color: var(--text-primary); font: 600 13px var(--font-display); }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.calendar-weekdays { padding: 10px 0 5px; color: var(--text-dim); font: 8px var(--font-mono); }
+.calendar-day { padding: 5px 0; color: var(--text-secondary); font: 10px var(--font-mono); }
+.calendar-day.current { color: var(--bg-void); background: var(--signal); border-radius: 50%; }
+.calendar-note { display: block; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--hairline); font-size: 7px; line-height: 1.5; }
 
 .navigation-rail {
   position: absolute;
@@ -226,6 +245,8 @@
   .globe-zoom-control { left: 173px !important; }
   .top-header { gap: 12px; }
   .radar-logo { width: 170px; }
+  .time-readout { min-width: 135px; }
+  .time-rate-presets { display: none; }
   .legend-item { gap: 5px; }
   .risk-legend { gap: 12px; }
 }
@@ -235,6 +256,8 @@
   .radar-shell { min-height: 720px; height: 100svh; }
   .top-header { top: 10px; left: 10px; right: 10px; height: auto; min-height: 54px; gap: 8px; padding: 7px; }
   .radar-logo { width: 112px; height: 40px; }
+  .time-controls { position: absolute; top: 62px; left: 50%; width: max-content; transform: translateX(-50%); border: 1px solid var(--hairline); background: var(--panel); }
+  .time-readout { min-width: 150px; }
   .header-status { display: none; }
   .search-wrap { width: auto; flex: 1; }
   .navigation-rail { top: 78px; left: 10px; right: 10px; bottom: auto; width: auto; padding: 10px; display: block; }

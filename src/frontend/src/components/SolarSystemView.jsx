@@ -64,15 +64,21 @@ function makeLabel(text, colorCss) {
   return obj;
 }
 
-export default function SolarSystemView({ onSelectBody, selectedBodyId }) {
+export default function SolarSystemView({ onSelectBody, selectedBodyId, simulationTime }) {
   const containerRef = useRef(null);
   const stateRef = useRef(null);
   const onSelectBodyRef = useRef(onSelectBody);
+  const simulationTimeRef = useRef(simulationTime);
+  const simulationReferenceMs = useRef(Date.now());
   const [hoveredName, setHoveredName] = useState(null);
 
   useEffect(() => {
     onSelectBodyRef.current = onSelectBody;
   }, [onSelectBody]);
+
+  useEffect(() => {
+    simulationTimeRef.current = simulationTime;
+  }, [simulationTime]);
 
   useEffect(() => {
     // Unlike GlobeView's Cesium setup, everything here is synchronous (no
@@ -198,6 +204,7 @@ export default function SolarSystemView({ onSelectBody, selectedBodyId }) {
         pivot,
         mesh,
         angularSpeed: angularSpeed(planet.orbitalPeriodDays),
+        initialAngle: angle,
       });
     });
 
@@ -239,14 +246,12 @@ export default function SolarSystemView({ onSelectBody, selectedBodyId }) {
     });
     resizeObserver.observe(container);
 
-    let lastTime = performance.now();
     let frameId;
-    function animate(now) {
+    function animate() {
       frameId = requestAnimationFrame(animate);
-      const dt = Math.min((now - lastTime) / 1000, 0.1);
-      lastTime = now;
-      planetMeshes.forEach(({ pivot, angularSpeed: speed }) => {
-        pivot.rotation.y += speed * dt * 0.1;
+      const elapsedSeconds = (simulationTimeRef.current.getTime() - simulationReferenceMs.current) / 1000;
+      planetMeshes.forEach(({ pivot, angularSpeed: speed, initialAngle }) => {
+        pivot.rotation.y = initialAngle + speed * elapsedSeconds * 0.1;
       });
       controls.update();
       renderer.render(scene, camera);

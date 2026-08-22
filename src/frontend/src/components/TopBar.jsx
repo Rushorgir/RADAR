@@ -8,7 +8,7 @@ const MODES = [
   { id: "solar", label: "Solar System" },
 ];
 
-export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects, onSelectObject }) {
+export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects, onSelectObject, timeControls }) {
   const [query, setQuery] = useState("");
   const matches = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -27,6 +27,7 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
     <>
       <header className="top-header hud-frame">
         <img className="radar-logo" src={logoUrl} alt="RADAR — Risk Assessment and Debris Avoidance Routing" />
+        {timeControls}
         <div className="search-wrap">
           <label className="eyebrow search-label" htmlFor="object-search">Search objects</label>
           <input

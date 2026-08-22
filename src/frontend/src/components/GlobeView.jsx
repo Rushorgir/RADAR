@@ -65,6 +65,25 @@ function sliderPctFromHeight(heightM) {
 // globe in frame -- verified visually, not a documented Cesium constant.
 const STANDARD_GLOBE_HEIGHT_M = 19000000;
 const WHOLE_GLOBE_DESTINATION = Cesium.Cartesian3.fromDegrees(0, 10, STANDARD_GLOBE_HEIGHT_M);
+const POSITION_REFERENCE_MS = Date.now();
+
+function dynamicObjectPosition(object) {
+  const radiusM = (6371 + Number(object.altitude_km || 550)) * 1000;
+  const startingLongitude = Cesium.Math.toRadians(Number(object.longitude || 0));
+  const inclination = Cesium.Math.toRadians(Math.min(88, Math.max(8, Math.abs(Number(object.latitude || 30)))));
+  const periodSeconds = 5100 + ((Number(object.altitude_km || 550) - 400) / 800) * 1800;
+  const phaseOffset = (Number(object.object_id) || 0) % 360;
+
+  return new Cesium.CallbackProperty((time) => {
+    const elapsedSeconds = (Cesium.JulianDate.toDate(time).getTime() - POSITION_REFERENCE_MS) / 1000;
+    const angle = startingLongitude + phaseOffset * Math.PI / 180 + elapsedSeconds * 2 * Math.PI / periodSeconds;
+    return new Cesium.Cartesian3(
+      radiusM * Math.cos(angle),
+      radiusM * Math.sin(angle) * Math.cos(inclination),
+      radiusM * Math.sin(angle) * Math.sin(inclination),
+    );
+  }, false);
+}
 
 function animationPhase(time, periodSeconds) {
   return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
@@ -104,7 +123,7 @@ function animatedRingColor(object, color) {
 
 // Resolve a CSS variable to a concrete color the Cesium canvas can use
 // (the canvas can't consume var(--x) directly, only the resolved value).
-export default function GlobeView({ objects, mode, selectedObjectId, onSelectObject }) {
+export default function GlobeView({ objects, mode, selectedObjectId, onSelectObject, simulationTime }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const entityMapRef = useRef(new Map());
@@ -199,6 +218,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     viewer.camera.setView({
       destination: WHOLE_GLOBE_DESTINATION,
     });
+    viewer.clock.shouldAnimate = false;
 
     viewer.screenSpaceEventHandler.setInputAction((click) => {
       const picked = viewer.scene.pick(click.position);
@@ -268,6 +288,11 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (viewer && simulationTime) viewer.clock.currentTime = Cesium.JulianDate.fromDate(simulationTime);
+  }, [simulationTime]);
+
   // ---- sync entities whenever the object list changes ----
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -277,11 +302,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
     entityMapRef.current.clear();
 
     objects.forEach((obj) => {
-      const position = Cesium.Cartesian3.fromDegrees(
-        obj.longitude,
-        obj.latitude,
-        obj.altitude_km * 1000
-      );
+      const position = dynamicObjectPosition(obj);
 
       const entity = viewer.entities.add({
         position,
