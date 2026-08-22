@@ -270,6 +270,28 @@ export default function GlobeView({
       destination: WHOLE_GLOBE_DESTINATION,
     });
 
+    // Without this, the camera stays fixed in the Earth-fixed (ECEF) frame
+    // by default -- the same rotating frame the globe itself is drawn in --
+    // so camera and globe co-rotate together and the planet looks
+    // rotationally locked to the view: the sun/terminator moves (lighting
+    // is computed independently), but the continents never do. This
+    // re-parents the camera into the true inertial (ICRF) frame every
+    // render frame -- the standard Cesium technique (from Cesium's own
+    // "ICRF" Sandcastle example) for making the globe visibly spin on its
+    // axis beneath the camera instead. It re-derives the camera's
+    // inertial-frame offset fresh from whatever position the mouse-drag/
+    // zoom/flyTo controls elsewhere in this file just set it to, every
+    // single frame, so it doesn't fight with any of them.
+    const lockCameraToInertialFrame = (currentScene, time) => {
+      if (currentScene.mode !== Cesium.SceneMode.SCENE3D) return;
+      const icrfToFixed = Cesium.Transforms.computeIcrfToFixedMatrix(time);
+      if (!Cesium.defined(icrfToFixed)) return; // EOP data not resolved for this instant yet -- skip a frame rather than throw
+      const offset = Cesium.Cartesian3.clone(viewer.camera.position);
+      const transform = Cesium.Matrix4.fromRotationTranslation(icrfToFixed);
+      viewer.camera.lookAtTransform(transform, offset);
+    };
+    viewer.scene.postUpdate.addEventListener(lockCameraToInertialFrame);
+
     viewer.screenSpaceEventHandler.setInputAction((click) => {
       const picked = viewer.scene.pick(click.position);
       if (Cesium.defined(picked) && picked.id?.radarId) {
@@ -340,6 +362,7 @@ export default function GlobeView({
       window.removeEventListener("mouseup", endDrag);
       viewer.camera.changed.removeEventListener(updateTooltipPosition);
       viewer.camera.changed.removeEventListener(syncSliderToCamera);
+      viewer.scene.postUpdate.removeEventListener(lockCameraToInertialFrame);
       viewer.destroy();
       viewerRef.current = null;
       corridorDataSourceRef.current = null;
