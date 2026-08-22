@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """SGP4/SDP4 orbit propagation: single-object engine, covariance estimation, batch orchestration."""
 
 from src.propagation.batch_arrays import CatalogPropagationArrays, propagate_catalog_arrays

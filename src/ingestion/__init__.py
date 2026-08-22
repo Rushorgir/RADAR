@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """TLE ingestion: fetch from Celestrak, parse, and cache locally."""
 
 from src.ingestion.models import ParsedTLE, RawTLE, TLEFetchError, TLEParseError, TLESource

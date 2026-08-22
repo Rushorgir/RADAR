@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Re-export of the PropagatedState and PropagatedEpoch models from shared contracts.
 """

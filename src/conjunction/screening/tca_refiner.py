@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 TCA Refiner (Time of Closest Approach)
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 End-to-end Conjunction Screening and Probability Pipeline.
 """

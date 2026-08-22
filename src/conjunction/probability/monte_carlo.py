@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Monte Carlo Fallback for Probability of Collision (Pc)
 

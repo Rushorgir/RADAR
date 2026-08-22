@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Coordinate frame transformation utilities (TEME / ECI / ECEF / RIC)."""
 
 from src.shared.frames.transforms import (

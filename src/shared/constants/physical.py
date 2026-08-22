@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Physical constants and system-wide thresholds for the RADAR/OrbitGuard SSA system.
 

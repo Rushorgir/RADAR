@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Stage 2 Conjunction Screening: Fine Filter
 

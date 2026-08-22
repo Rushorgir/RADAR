@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shap
 import pandas as pd
 import numpy as np

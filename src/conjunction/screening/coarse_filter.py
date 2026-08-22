@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Stage 1 Conjunction Screening: Coarse Filter
 

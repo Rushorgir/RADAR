@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import lightgbm as lgb
 import pandas as pd

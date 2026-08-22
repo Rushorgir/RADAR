@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 RADAR Backend — Database Connection & Session Management.
 

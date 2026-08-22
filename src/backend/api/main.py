@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -17,12 +20,42 @@ from src.backend.api.websocket import router as websocket_router
 from src.backend.db.connection import Base, engine
 
 
+async def run_pipeline_background():
+    """Run the ingestion pipeline in the background after startup."""
+    try:
+        # Give the server a few seconds to fully bind and start accepting requests
+        await asyncio.sleep(5)
+        logger.info("Starting automatic dataset ingestion pipeline...")
+        
+        # We run the pipeline as a subprocess to keep it decoupled and non-blocking
+        process = await asyncio.create_subprocess_exec(
+            "python", "scripts/run_radar_pipeline.py", "--post-to-backend",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0:
+            logger.info("Automatic pipeline completed successfully.")
+        else:
+            logger.error(f"Automatic pipeline failed with return code {process.returncode}")
+            logger.error(f"Stderr: {stderr.decode()}")
+            
+    except Exception as e:
+        logger.error(f"Failed to run pipeline in background: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("RADAR Backend starting up...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created/verified.")
+    
+    # Spawn background task
+    asyncio.create_task(run_pipeline_background())
+    
     yield
     # Shutdown
     logger.info("RADAR Backend shutting down.")

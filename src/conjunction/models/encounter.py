@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Internal data structures for encounter geometry processing and conjunction event lifecycle management.
 """

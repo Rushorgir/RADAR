@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Foster's 2D Method for Probability of Collision (Pc)
 

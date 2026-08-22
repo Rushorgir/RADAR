@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Re-export of the ConjunctionEvent and related models from shared contracts.
 """
