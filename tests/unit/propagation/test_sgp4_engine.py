@@ -133,3 +133,25 @@ class TestSgp4FailureHandling:
         assert traj.errors[0].error_code == SGP4ErrorCode.SATELLITE_HAS_DECAYED
         assert len(traj.states) == 10  # the other 10 of 11 timesteps still succeeded
         assert not traj.ok
+
+    def test_real_satrec_reports_decay_for_a_genuinely_decayed_extrapolation(self, propagator, iss_tle):
+        """
+        Every other decay test in this file swaps in `_FakeSatrec` -- useful
+        for exercising the error-handling *path*, but it never actually asks
+        the real C-extension Satrec to decide an orbit has decayed. This one
+        does: it's the real, unmodified, currently-valid ISS TLE (same one
+        the rest of this file uses) and the real `Satrec.sgp4`, just asked to
+        propagate ~10 years past its own epoch -- far enough that SGP4's own
+        drag model (driven by this TLE's real B* term), extrapolated that
+        far, legitimately predicts the orbit has decayed below the model's
+        validity. Verified empirically before hardcoding: error_code == 6
+        (SATELLITE_HAS_DECAYED) is stable across roughly a +6y to +14y
+        window for this specific TLE; +10y sits comfortably in the middle of
+        it rather than right at an edge.
+        """
+        far_future = iss_tle.epoch + timedelta(days=365.25 * 10)
+
+        with pytest.raises(SGP4PropagationFailure) as excinfo:
+            propagator.propagate_at(far_future)
+
+        assert excinfo.value.error_code == SGP4ErrorCode.SATELLITE_HAS_DECAYED

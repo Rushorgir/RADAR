@@ -437,16 +437,26 @@ Documented honestly rather than glossed over:
 - **Object-type classification is a name heuristic**, not an authoritative
   SATCAT lookup (§2). Works for Celestrak's own naming convention; would
   misclassify an object with an unconventional name.
-- **SGP4 decayed-object handling is only tested via a mocked `Satrec`**, not
-  against a real historical TLE for an object that has actually re-entered.
-  Would be a good additional confidence check.
-- **No independent second-implementation cross-check yet.** `skyfield` is
-  available (see §3) but unused; running the same TLEs through it and
-  diffing against this module's output would catch any subtle bug this
-  module's own tests might share a blind spot with.
-- **`config/settings.toml` isn't wired up yet.** `propagation_horizon_h`
-  (72.0) and `screening_timestep_s` (60.0) already live there, but this
-  module's script/defaults currently hardcode the same numbers rather than
-  reading from that shared config file. Low-risk consistency fix.
-- **No PR opened yet** for `feat/anas` against `main` — the branch is pushed
-  and ready, just needs the actual pull request for team visibility/review.
+- ~~SGP4 decayed-object handling is only tested via a mocked `Satrec`~~ —
+  **closed**: `tests/unit/propagation/test_sgp4_engine.py::TestSgp4FailureHandling::test_real_satrec_reports_decay_for_a_genuinely_decayed_extrapolation`
+  now exercises the real (unmocked) `Satrec.sgp4` against the same real,
+  unmodified ISS TLE the rest of the suite uses, propagated ~10 years past
+  its own epoch — far enough that its real B* drag term, extrapolated that
+  far by SGP4's own model, legitimately predicts decay
+  (`SATELLITE_HAS_DECAYED`), rather than a fabricated "historical" TLE.
+- ~~No independent second-implementation cross-check yet~~ — **closed**:
+  `tests/unit/propagation/test_skyfield_cross_check.py` runs the same real
+  ISS TLE through skyfield's independent SGP4 implementation at 5 offsets
+  (epoch, +1h, +6h, +24h, +72h) and diffs against this module's output.
+  Measured agreement: 12m-187m position, comfortably inside a 1km bound —
+  rules out a wide class of frame/rotation bugs this module's own tests
+  can't, since skyfield shares none of this module's frame-transform code.
+- ~~`config/settings.toml` isn't wired up yet~~ — **closed**:
+  `src/shared/config.py` loads it (with CLI-arg and env-var override
+  support, 6 tests in `tests/unit/shared/test_config.py`), and
+  `scripts/run_radar_pipeline.py` reads `propagation_horizon_h` /
+  `screening_timestep_s` from it instead of hardcoding them.
+- **No PR was ever opened for `feat/anas` against `main`** — moot now:
+  `feat/anas` (and every other feature branch this project used) has since
+  been merged directly into `main`, so there's nothing left to open a PR
+  against.
