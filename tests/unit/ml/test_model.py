@@ -4,11 +4,10 @@ import sys
 import lightgbm as lgb
 import numpy as np
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-from ml.features.extractor import FEATURES
-from ml.ranking.train import get_target_class
-from ml.ranking.predictor import MLRiskPredictor
-from shared.interfaces.contracts import RiskCategory
+from src.ml.features.extractor import FEATURES
+from src.ml.ranking.train import get_target_class
+from src.ml.ranking.predictor import MLRiskPredictor
+from src.shared.interfaces.contracts import RiskCategory
 
 def test_get_target_class():
     assert get_target_class(-5.0) == 2 # HIGH
@@ -19,7 +18,7 @@ def test_get_target_class():
     assert get_target_class(-30.0) == 0 # LOW
 
 def test_model_loading():
-    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'ml', 'models', 'improved', 'lightgbm_risk_model.txt'))
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src', 'ml', 'models', 'improved', 'lightgbm_risk_model.txt'))
     if os.path.exists(model_path):
         model = lgb.Booster(model_file=model_path)
         assert model is not None
@@ -33,7 +32,7 @@ def test_model_loading():
         pytest.skip("Improved model not trained yet.")
 
 def test_ml_risk_predictor():
-    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'ml', 'models', 'improved', 'lightgbm_risk_model.txt'))
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src', 'ml', 'models', 'improved', 'lightgbm_risk_model.txt'))
     if not os.path.exists(model_path):
         pytest.skip("Improved model not trained yet.")
         

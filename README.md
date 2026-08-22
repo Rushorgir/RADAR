@@ -52,7 +52,7 @@ Automated tests are organized in `tests/` — run with `python -m pytest tests/ 
 
 To maintain modularity and avoid git merge conflicts while working in parallel:
 
-1. **Work in your designated directory**: Each contributor MUST write their module code exclusively inside their assigned directory under `src/` as mapped in the table above. See [TEAM_DIRECTORY_GUIDE.md](TEAM_DIRECTORY_GUIDE.md) for full folder & component breakdowns.
+1. **Work in your designated directory**: Each contributor MUST write their module code exclusively inside their assigned directory under `src/` as mapped in the table above.
 2. **Do NOT modify other members' folders**: If you need functionality from another module, request an update via PR or use the agreed interface contracts in `src/shared/interfaces/contracts.py`.
 3. **Shared Contracts**: `src/shared/` contains common constants and Pydantic interface contracts. Any proposed breaking changes to `src/shared/` MUST be announced and agreed upon by the team before committing.
 4. **Unit Tests**: Place your unit tests in your dedicated subfolder under `tests/unit/<module_name>/`.
@@ -63,47 +63,44 @@ To maintain modularity and avoid git merge conflicts while working in parallel:
 
 ```
 RADAR/
+├── config/
+│   └── settings.toml       # Pipeline and simulation parameters
+├── data/
+│   ├── tle_cache/          # Cached TLE files from Celestrak
+│   ├── cdm_reference/      # ESA Kelvins 2019 CDM reference data
+│   └── radar.db            # Local SQLite database (ignored by git)
+├── resources/              # Problem statement PDFs, team plan
+├── scripts/
+│   └── run_radar_pipeline.py # End-to-end pipeline execution CLI
 ├── src/
-│   ├── ingestion/          # [AI-1: Anas] TLE fetch & parse from Celestrak
-│   ├── propagation/        # [AI-1: Anas] SGP4 propagation engine
-│   ├── conjunction/        # [AI-2: Rushaan] Conjunction screening + Pc
+│   ├── ingestion/          # [AI-1] TLE fetch & parse from Celestrak
+│   ├── propagation/        # [AI-1] SGP4 propagation engine
+│   ├── conjunction/        # [AI-2] Conjunction screening + Pc
 │   │   ├── models/         #   state.py, encounter.py, conjunction_event.py
 │   │   ├── screening/      #   coarse_filter.py, fine_filter.py, tca_refiner.py, engine.py
 │   │   ├── probability/    #   foster_2d.py, monte_carlo.py, encounter_frame.py, engine.py
 │   │   └── pipeline.py     #   End-to-end: CatalogPropagationArrays -> ConjunctionEvents
-│   ├── ml/                 # [AI-3: Udarsh] ML risk ranking pipeline
+│   ├── ml/                 # [AI-3] ML risk ranking pipeline
 │   │   ├── features/       #   Feature engineering from conjunction events
 │   │   ├── ranking/        #   LightGBM + TabPFN model training/inference
 │   │   └── explainability/ #   SHAP integration & explanations
-│   ├── maneuver/           # [AI-3: Udarsh] Delta-v avoidance advisory
-│   ├── backend/            # [Web: Balaganesh] FastAPI REST API
+│   ├── maneuver/           # [AI-3] Delta-v avoidance advisory
+│   ├── backend/            # [Backend] FastAPI REST & WebSocket server
 │   │   ├── api/            #   Route handlers / endpoints
-│   │   ├── db/             #   PostgreSQL/SQLite models & migrations
+│   │   ├── db/             #   SQLAlchemy models, migrations & connection
 │   │   └── schemas/        #   Pydantic request/response schemas
-│   ├── frontend/           # [Web: Balaganesh] React + Cesium.js dashboard
+│   ├── frontend/           # [Frontend] React + Cesium.js dashboard
 │   │   ├── public/         #   Static assets
 │   │   └── src/            #   React components, pages, utilities
-│   └── shared/             # [All] Common utilities, constants, frame transforms
-│       ├── frames/         #   ECI/ECEF/TEME coordinate frame helpers
-│       ├── constants/      #   Physical constants, thresholds
-│       └── interfaces/     #   Shared interface contracts (JSON schemas)
+│   └── shared/             # [Shared] Constants, frame transforms, interfaces
 ├── tests/
-│   ├── unit/               # Per-module unit tests
+│   ├── conftest.py         # Root test fixtures
+│   ├── test_backend.py     # Unified backend API & CRUD tests
 │   ├── integration/        # Cross-module integration tests
-│   ├── fixtures/           # Synthetic test data & known conjunctions
-│   └── validation/         # Validation against ESA Kelvins CDM dataset
-├── data/
-│   ├── tle_cache/          # Cached TLE files from Celestrak
-│   └── cdm_reference/      # ESA Kelvins 2019 CDM reference data
-├── docs/                   # Architecture docs, pitch deck, demo script
-├── scripts/                # Utility scripts (data download, pipeline runners)
-├── config/                 # Configuration files (thresholds, API keys)
-├── resources/              # Problem statement PDFs, team plan
+│   └── unit/               # Unit tests by subsystem (conjunction, ingestion, etc.)
 ├── requirements.txt        # Python dependencies
-├── pyproject.toml          # Project metadata
-├── AI1_IMPLEMENTATION_NOTES.md   # AI-1 module deep-dive: what was built, how it was verified, perf notes
-├── TEST_SUITE_MOCK_BUG_FIX.md    # A cross-team test-infrastructure bug: found, diagnosed, fixed
-└── docker-compose.yml      # Deployment orchestration
+├── pyproject.toml          # Project build configuration
+└── alembic.ini             # Database migration configuration
 ```
 
 ---

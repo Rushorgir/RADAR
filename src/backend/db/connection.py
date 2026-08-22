@@ -12,12 +12,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# ---------------------------------------------------------------------------
-# Database URL: default to SQLite file in project root for local dev.
+# Database URL: default to SQLite file in data/ directory for local dev.
 # Override with env var DATABASE_URL for PostgreSQL in production.
 #   e.g. DATABASE_URL=postgresql://user:pass@host:5432/radar
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./radar.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/radar.db")
 
 # SQLite requires check_same_thread=False for FastAPI's async context.
 _connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}

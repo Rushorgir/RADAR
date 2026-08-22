@@ -3,8 +3,7 @@ import math
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-from maneuver.optimizer import ManeuverOptimizer, ManeuverAdvisoryResult
+from src.maneuver.optimizer import ManeuverOptimizer, ManeuverAdvisoryResult
 
 def test_maneuver_no_maneuver_needed():
     optimizer = ManeuverOptimizer(target_safety_distance_km=10.0)

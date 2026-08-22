@@ -9,7 +9,6 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import classification_report, confusion_matrix, precision_recall_fscore_support
 import shap
 import json
-import matplotlib.pyplot as plt
 
 # We must add src to sys.path to import ml modules
 import sys

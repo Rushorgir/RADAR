@@ -4,8 +4,7 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-from ml.features.extractor import extract_features_from_kelvins, extract_features_from_conjunction_event, FEATURES
+from src.ml.features.extractor import extract_features_from_kelvins, extract_features_from_conjunction_event, FEATURES
 
 def test_extract_features_from_kelvins():
     df = pd.DataFrame({

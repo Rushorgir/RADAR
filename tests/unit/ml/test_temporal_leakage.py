@@ -4,8 +4,7 @@ import numpy as np
 import os
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-from ml.ranking.experiments import build_features
+from src.ml.ranking.experiments import build_features
 
 def test_temporal_leakage():
     # Construct a dummy dataset simulating descending time_to_tca
