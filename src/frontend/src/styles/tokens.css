@@ -1,0 +1,124 @@
+:root {
+  /* ---- Color: deep-space console, not the default cream/terracotta AI look ---- */
+  --bg-void: #05070c;
+  --bg-void-2: #070a12;
+  --panel: rgba(13, 18, 32, 0.82);
+  --panel-raised: rgba(19, 26, 44, 0.92);
+  --hairline: rgba(148, 168, 210, 0.14);
+  --hairline-strong: rgba(148, 168, 210, 0.28);
+
+  --text-primary: #e8ecf6;
+  --text-secondary: #8892a8;
+  --text-dim: #545e78;
+
+  --signal: #3fd6c6;        /* nominal / active telemetry cyan-teal */
+  --signal-dim: rgba(63, 214, 198, 0.14);
+  --signal-line: rgba(63, 214, 198, 0.35);
+
+  --risk-critical: #ff5c5c;
+  --risk-critical-dim: rgba(255, 92, 92, 0.14);
+  --risk-elevated: #ffa94d;
+  --risk-elevated-dim: rgba(255, 169, 77, 0.14);
+  --risk-medium: #f1cf62;
+  --risk-nominal: #3fd6c6;
+
+  --debris-dot: #4a5570;
+
+  /* ---- Type ---- */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* ---- Shape / rhythm ---- */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --panel-blur: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--signal-dim);
+  color: var(--signal);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- Signature element: bracket-corner HUD frame ---- */
+.hud-frame {
+  position: relative;
+  background: var(--panel);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+}
+
+.hud-frame::before,
+.hud-frame::after,
+.hud-frame > .corner-tl,
+.hud-frame > .corner-br {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.hud-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid var(--signal-line);
+  border-left: 1.5px solid var(--signal-line);
+}
+
+.hud-frame::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid var(--signal-line);
+  border-right: 1.5px solid var(--signal-line);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
