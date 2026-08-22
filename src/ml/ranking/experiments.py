@@ -10,9 +10,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 import shap
 
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from ml.features.extractor import OBJECT_TYPE_MAPPING
+from src.ml.features.extractor import OBJECT_TYPE_MAPPING, FEATURES
 
 def get_target_class(final_risk):
     if final_risk >= -6.0: return 2
@@ -72,7 +70,6 @@ def build_features(df):
     df_feat['log_combined_cross_section_area'] = np.nan
     
     # Ensure correct ordering
-    from ml.features.extractor import FEATURES
     return df_feat[['event_id', 'target'] + FEATURES]
 
 def evaluate_predictions(y_true, y_pred, name="Model"):
@@ -156,8 +153,6 @@ def apply_thresholds(probs, t_high, t_med):
 def run_experiments():
     df = load_data()
     df_feat = build_features(df)
-    
-    from ml.features.extractor import FEATURES
     
     base_features = ['time_to_tca', 'miss_distance', 'relative_speed', 'current_risk', 'mahalanobis_distance', 'object_type_encoded']
     all_features = FEATURES

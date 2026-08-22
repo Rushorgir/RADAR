@@ -5,18 +5,13 @@ import lightgbm as lgb
 import pandas as pd
 from typing import Dict, Any
 
-# Add src to sys.path to resolve internal imports when script is run directly
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-from ml.features.extractor import extract_features_from_conjunction_event, FEATURES
-from ml.explainability.shap_explainer import RiskExplainer
-
-# Shared contract imports (assuming they exist in the project)
-from shared.interfaces.contracts import RiskScoredEvent, RiskCategory, SHAPFeature
+from src.ml.features.extractor import extract_features_from_conjunction_event, FEATURES
+from src.ml.explainability.shap_explainer import RiskExplainer
+from src.shared.interfaces.contracts import RiskScoredEvent, RiskCategory, SHAPFeature, ManeuverAdvisory
+from src.maneuver.optimizer import ManeuverOptimizer
 
 class MLRiskPredictor:
-    def __init__(self, model_path: str = None):
+    def __init__(self, model_path: str | None = None):
         if model_path is None:
             model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'improved', 'lightgbm_risk_model.txt')
         
@@ -93,8 +88,6 @@ class MLRiskPredictor:
         # Generate Maneuver Advisory if HIGH risk
         maneuver_adv = None
         if risk_category == RiskCategory.HIGH:
-            from maneuver.optimizer import ManeuverOptimizer
-            from shared.interfaces.contracts import ManeuverAdvisory
             optimizer = ManeuverOptimizer(target_safety_distance_km=10.0)
             adv_res = optimizer.calculate_advisory(miss_distance_km, time_to_tca_days, relative_velocity_km_s)
             if adv_res:

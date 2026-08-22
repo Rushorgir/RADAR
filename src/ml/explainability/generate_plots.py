@@ -9,8 +9,7 @@ import numpy as np
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from ml.ranking.experiments import load_data, build_features
+from src.ml.ranking.experiments import load_data, build_features
 
 def main():
     model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'improved', 'lightgbm_risk_model.txt'))

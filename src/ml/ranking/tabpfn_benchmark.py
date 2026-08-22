@@ -12,9 +12,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, con
 import lightgbm as lgb
 from tabpfn import TabPFNClassifier
 
-# Ensure ml is in path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from ml.ranking.experiments import load_data, build_features
+from src.ml.ranking.experiments import load_data, build_features
 
 def evaluate_predictions(y_true, y_pred, name="Model"):
     acc = accuracy_score(y_true, y_pred)

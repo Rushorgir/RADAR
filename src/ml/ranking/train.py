@@ -10,11 +10,7 @@ from sklearn.metrics import classification_report, confusion_matrix, precision_r
 import shap
 import json
 
-# We must add src to sys.path to import ml modules
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-from ml.features.extractor import extract_features_from_kelvins, FEATURES
+from src.ml.features.extractor import extract_features_from_kelvins, FEATURES
 
 def get_target_class(final_risk):
     if final_risk >= -6.0:

@@ -28,4 +28,4 @@ def test_maneuver_calculation():
     assert math.isclose(result.delta_v_m_s, round(expected_dv, 4), abs_tol=1e-4)
     
     assert result.risk_reduction_factor == 4.0
-    assert result.fuel_cost_estimate_kg > 0.0
+    assert result.fuel_cost_estimate_kg is not None and result.fuel_cost_estimate_kg > 0.0

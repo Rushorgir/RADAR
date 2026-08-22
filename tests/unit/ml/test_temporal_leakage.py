@@ -33,8 +33,7 @@ def test_temporal_leakage():
     assert df_feat.loc[0, 'current_risk'] == -10.0
     assert df_feat.loc[1, 'current_risk'] == -8.0
     
-    # Assert target is never included in features
-    from ml.features.extractor import FEATURES
+    from src.ml.features.extractor import FEATURES
     assert list(df_feat.columns) == ['event_id', 'target'] + FEATURES
     assert 'final_risk' not in df_feat.columns
     

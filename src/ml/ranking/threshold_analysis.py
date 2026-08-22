@@ -8,10 +8,8 @@ import lightgbm as lgb
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from ml.features.extractor import OBJECT_TYPE_MAPPING
-from ml.ranking.experiments import load_data, build_features, get_target_class
+from src.ml.features.extractor import OBJECT_TYPE_MAPPING
+from src.ml.ranking.experiments import load_data, build_features, get_target_class
 
 def evaluate_thresholds(y_true, probs, t_high, t_med):
     preds = []

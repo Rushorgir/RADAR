@@ -96,8 +96,7 @@ class SatcatEnricher:
             how='left'
         )
         
-        # Handle regime mapping
-        from ml.features.extractor import ORBITAL_REGIME_MAPPING
+        from src.ml.features.extractor import ORBITAL_REGIME_MAPPING
         df['orbital_regime_encoded'] = merged['orbital_regime'].map(ORBITAL_REGIME_MAPPING).fillna(4).astype(int)
         
         # explicitly populate physical cross sectional area features as np.nan
