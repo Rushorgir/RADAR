@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
+  <title id="title">RADAR</title>
+  <desc id="desc">Risk Assessment and Debris Avoidance Routing</desc>
+  <rect width="760" height="220" rx="8" fill="#080b17"/>
+  <g fill="none" stroke="#61d1d1" stroke-width="12" stroke-linecap="round">
+    <path d="M42 158a82 82 0 0 1 116-116"/>
+    <path d="M58 176A106 106 0 0 1 208 26"/>
+    <path d="M74 194A130 130 0 0 1 244 10"/>
+    <path d="M71 182 203 50"/>
+    <circle cx="141" cy="116" r="42"/>
+  </g>
+  <path d="M141 80a36 36 0 0 0-31 54l31-18 29 17A36 36 0 0 0 141 80Z" fill="#61d1d1" opacity=".85"/>
+  <circle cx="141" cy="116" r="15" fill="#080b17"/>
+  <g fill="#61d1d1" opacity=".85">
+    <circle cx="220" cy="64" r="7"/><circle cx="235" cy="91" r="6"/><circle cx="238" cy="122" r="7"/><circle cx="220" cy="151" r="6"/><rect x="181" y="172" width="13" height="13" transform="rotate(25 187 178)"/>
+  </g>
+  <text x="270" y="116" fill="#f4f0df" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="12">RADAR</text>
+  <text x="275" y="158" fill="#e7e1cf" font-family="Arial, sans-serif" font-size="20">Risk Assessment &amp; Debris Avoidance Routing</text>
+</svg>

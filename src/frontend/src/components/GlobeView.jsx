@@ -72,6 +72,7 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
   const viewerRef = useRef(null);
   const entityMapRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
+  const hoveredEntityRef = useRef(null);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
   // defined below) -- not MAX_CAMERA_HEIGHT_M. The camera.changed listener
   // that would otherwise correct a wrong guess here isn't registered until
@@ -169,6 +170,24 @@ export default function GlobeView({ objects, mode, selectedObjectId, onSelectObj
         onSelectObjectRef.current?.(null);
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    viewer.screenSpaceEventHandler.setInputAction((movement) => {
+      const picked = viewer.scene.pick(movement.endPosition);
+      const nextEntity = Cesium.defined(picked) && picked.id?.radarId ? picked.id : null;
+      const previousEntity = hoveredEntityRef.current;
+      if (previousEntity && previousEntity !== nextEntity) {
+        previousEntity.point.pixelSize = previousEntity._radarBasePixelSize;
+        previousEntity.point.outlineWidth = previousEntity._radarBaseOutlineWidth;
+      }
+      if (nextEntity && nextEntity !== previousEntity) {
+        nextEntity._radarBasePixelSize = nextEntity.point.pixelSize.getValue?.() ?? nextEntity.point.pixelSize;
+        nextEntity._radarBaseOutlineWidth = nextEntity.point.outlineWidth.getValue?.() ?? nextEntity.point.outlineWidth;
+        nextEntity.point.pixelSize = nextEntity._radarBasePixelSize + 6;
+        nextEntity.point.outlineWidth = 2;
+      }
+      hoveredEntityRef.current = nextEntity;
+      viewer.canvas.classList.toggle("is-object-hovered", Boolean(nextEntity));
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     // Cesium's canvas gives no visual cue that dragging pans the globe --
     // toggle a grab/grabbing cursor the way any other draggable surface would.

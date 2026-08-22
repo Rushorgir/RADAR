@@ -78,6 +78,8 @@ export default function App() {
         mode={mode}
         onChangeMode={handleChangeMode}
         overallRiskStatus={dashboardStats.overall_risk_status}
+        objects={objects}
+        onSelectObject={setSelectedObjectId}
       />
 
       {!isSolar && (
