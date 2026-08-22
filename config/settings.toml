@@ -1,0 +1,42 @@
+# RADAR / OrbitGuard Configuration
+# Shared thresholds and parameters used across modules
+
+[screening]
+# Stage 1: Coarse filter - altitude band half-width (km)
+altitude_band_half_width = 50.0
+
+# Stage 2: Fine filter - encounter sphere threshold (km)
+encounter_sphere_radius = 10.0
+
+# Time step for propagation screening (seconds)
+screening_timestep_s = 60.0
+
+# Propagation horizon (hours ahead)
+propagation_horizon_h = 72.0
+
+[probability]
+# Combined hard-body radius default (km) if not provided
+default_combined_radius_km = 0.015
+
+# Foster 2D method: relative velocity threshold below which to fall back to Monte Carlo (m/s)
+foster_min_relative_velocity_ms = 100.0
+
+# Monte Carlo: number of samples
+monte_carlo_samples = 100000
+
+# Monte Carlo: confidence level for bounds
+monte_carlo_confidence = 0.95
+
+# Pc threshold for flagging as high-risk
+pc_high_risk_threshold = 1.0e-4
+
+[earth]
+# WGS84 Earth equatorial radius (km)
+radius_km = 6378.137
+
+# Earth gravitational parameter μ (km³/s²)
+mu_km3_s2 = 398600.4418
+
+[logging]
+level = "INFO"
+format = "{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}"
