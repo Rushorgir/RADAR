@@ -23,9 +23,11 @@ dist/
 build/
 *.egg-info/
 
-# Data (large files)
-data/tle_cache/*.txt
-data/cdm_reference/*.csv
+# Data (large/frequently-changing files -- keep the folders via .gitkeep)
+data/tle_cache/*
+!data/tle_cache/.gitkeep
+data/cdm_reference/*
+!data/cdm_reference/.gitkeep
 
 # Environment
 .env
@@ -45,3 +47,9 @@ coverage.xml
 
 # Docker
 *.log
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+radar.db

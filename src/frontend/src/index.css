@@ -167,3 +167,135 @@
   .risk-legend { left: 10px; right: 10px; bottom: 10px; gap: 8px; padding: 7px 9px; overflow-x: auto; white-space: nowrap; }
   .legend-title { margin-right: 5px; }
 }
+
+/* ---- Globe: drag affordance + zoom control ---- */
+.globe-canvas-layer {
+  cursor: grab;
+}
+.globe-canvas-layer.is-dragging {
+  cursor: grabbing;
+}
+
+.globe-zoom-control {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.globe-zoom-control .eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+.globe-zoom-step {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.globe-zoom-reset {
+  margin-left: 4px;
+  padding-left: 4px;
+  border-left: 1px solid var(--hairline);
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+.globe-zoom-step:hover {
+  color: var(--signal);
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+}
+.globe-zoom-step:focus-visible {
+  outline: 2px solid var(--signal-line);
+  outline-offset: 1px;
+}
+
+/* Custom-styled <input type="range">: the track and thumb are both fully
+   custom-drawn (the -webkit-appearance/appearance resets below strip the
+   native ones), which means the browser will NOT auto-center the thumb on
+   the track for us -- a thumb taller than the track needs an explicit
+   negative margin-top of half the height difference, or it renders flush
+   with the track's top edge instead of centered through it. */
+:root {
+  --zoom-track-height: 4px;
+  --zoom-thumb-size: 14px;
+}
+.globe-zoom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 120px;
+  height: var(--zoom-thumb-size); /* full thumb height, so it has room to render without clipping */
+  flex: none;
+}
+.globe-zoom-slider::-webkit-slider-runnable-track {
+  height: var(--zoom-track-height);
+  background: var(--hairline-strong);
+  border-radius: 2px;
+}
+.globe-zoom-slider::-moz-range-track {
+  height: var(--zoom-track-height);
+  background: var(--hairline-strong);
+  border-radius: 2px;
+}
+.globe-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--zoom-thumb-size);
+  height: var(--zoom-thumb-size);
+  border-radius: 50%;
+  background: var(--signal);
+  border: 2px solid var(--bg-void-2);
+  box-shadow: 0 0 0 1px var(--signal-line);
+  /* Centers the thumb vertically on the track: half the thumb height minus
+     half the track height, negated (thumb is taller than the track). */
+  margin-top: calc((var(--zoom-track-height) - var(--zoom-thumb-size)) / 2);
+}
+.globe-zoom-slider::-moz-range-thumb {
+  width: var(--zoom-thumb-size);
+  height: var(--zoom-thumb-size);
+  border-radius: 50%;
+  background: var(--signal);
+  border: 2px solid var(--bg-void-2);
+  box-shadow: 0 0 0 1px var(--signal-line);
+}
+.globe-zoom-slider:focus-visible {
+  outline: none;
+}
+.globe-zoom-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--signal-line);
+}
+
+/* ---- Solar System view ---- */
+.solar-canvas {
+  cursor: grab;
+}
+.solar-canvas:active {
+  cursor: grabbing;
+}
+.solar-label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateY(-14px);
+  text-shadow: 0 0 4px rgba(5, 7, 12, 0.9), 0 0 8px rgba(5, 7, 12, 0.7);
+  pointer-events: none;
+}
