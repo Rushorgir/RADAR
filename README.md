@@ -1,4 +1,4 @@
-# 🛰️ RADAR: AI-Assisted Space Debris Collision Risk Detection & Avoidance
+# 🛰️ RADAR: Risk Assessment & Debris Avoidance Routing
 
 > **VITISH 2026 / SIH Internal Hackathon — Problem Statement #17**
 > Space Technology – Space Debris Detection & Collision Avoidance
