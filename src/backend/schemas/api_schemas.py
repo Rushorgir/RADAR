@@ -1,20 +1,19 @@
-from typing import List, Optional, Dict, Any, Generic, TypeVar
-from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
+from typing import Any, Generic, TypeVar
+
+from pydantic import BaseModel, ConfigDict
 
 from src.shared.interfaces.contracts import (
-    ConjunctionEvent, 
-    RiskScoredEvent, 
     ManeuverAdvisory,
-    SHAPFeature,
+    ObjectType,
     RiskCategory,
-    ObjectType
+    SHAPFeature,
 )
 
 T = TypeVar("T")
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    items: List[T]
+    items: list[T]
     total: int
     page: int
     size: int
@@ -23,7 +22,7 @@ class ManeuverAdvisoryResponse(BaseModel):
     delta_v_m_s: float
     burn_direction: str
     new_miss_distance_km: float
-    fuel_cost_estimate_kg: Optional[float]
+    fuel_cost_estimate_kg: float | None
 
 class ConjunctionEventResponse(BaseModel):
     """Maps 1:1 to ConjunctionEventModel. Used for GET responses."""
@@ -33,27 +32,27 @@ class ConjunctionEventResponse(BaseModel):
     tca: datetime
     miss_distance_km: float
     relative_velocity_km_s: float
-    relative_position_enc: Optional[List[float]] = None
-    combined_covariance_enc_2x2: Optional[List[List[float]]] = None
+    relative_position_enc: list[float] | None = None
+    combined_covariance_enc_2x2: list[list[float]] | None = None
     pc: float
     pc_method: str
-    pc_confidence_lower: Optional[float] = None
-    pc_confidence_upper: Optional[float] = None
+    pc_confidence_lower: float | None = None
+    pc_confidence_upper: float | None = None
     combined_hard_body_radius_km: float
     primary_object_type: str
     secondary_object_type: str
-    validity_flags: Optional[Dict[str, bool]] = None
+    validity_flags: dict[str, bool] | None = None
     
     # Enriched fields from ML
-    ml_risk_score: Optional[float] = None
-    risk_category: Optional[str] = None
-    shap_top_features: Optional[List[Dict[str, Any]]] = None
+    ml_risk_score: float | None = None
+    risk_category: str | None = None
+    shap_top_features: list[dict[str, Any]] | None = None
     
     # Enriched fields from Maneuver
-    maneuver_delta_v_m_s: Optional[float] = None
-    maneuver_burn_direction: Optional[str] = None
-    maneuver_new_miss_distance_km: Optional[float] = None
-    maneuver_fuel_cost_estimate_kg: Optional[float] = None
+    maneuver_delta_v_m_s: float | None = None
+    maneuver_burn_direction: str | None = None
+    maneuver_new_miss_distance_km: float | None = None
+    maneuver_fuel_cost_estimate_kg: float | None = None
     
     created_at: datetime
     
@@ -64,14 +63,14 @@ class TLEDataResponse(BaseModel):
     """Full TLE response."""
     id: int
     object_id: str
-    object_name: Optional[str] = None
-    object_type: Optional[str] = None
+    object_name: str | None = None
+    object_type: str | None = None
     line1: str
     line2: str
     epoch: datetime
-    inclination_deg: Optional[float] = None
-    eccentricity: Optional[float] = None
-    mean_motion_rev_day: Optional[float] = None
+    inclination_deg: float | None = None
+    eccentricity: float | None = None
+    mean_motion_rev_day: float | None = None
     fetched_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -81,8 +80,8 @@ class DashboardSummaryResponse(BaseModel):
     total_tracked_objects: int
     total_conjunction_events: int
     active_high_risk_alerts: int
-    risk_distribution: Dict[str, int]
-    recent_high_risk_events: List[ConjunctionEventResponse]
+    risk_distribution: dict[str, int]
+    recent_high_risk_events: list[ConjunctionEventResponse]
 
 
 # --- Request Models for Ingestion ---
@@ -96,16 +95,16 @@ class ConjunctionEventCreate(BaseModel):
     tca: datetime
     miss_distance_km: float
     relative_velocity_km_s: float
-    relative_position_enc: Optional[List[float]] = None
-    combined_covariance_enc_2x2: Optional[List[List[float]]] = None
+    relative_position_enc: list[float] | None = None
+    combined_covariance_enc_2x2: list[list[float]] | None = None
     pc: float
     pc_method: str
-    pc_confidence_lower: Optional[float] = None
-    pc_confidence_upper: Optional[float] = None
+    pc_confidence_lower: float | None = None
+    pc_confidence_upper: float | None = None
     combined_hard_body_radius_km: float
     primary_object_type: ObjectType
     secondary_object_type: ObjectType
-    validity_flags: Optional[Dict[str, bool]] = None
+    validity_flags: dict[str, bool] | None = None
 
 
 class RiskScoreUpdate(BaseModel):
@@ -113,18 +112,18 @@ class RiskScoreUpdate(BaseModel):
     event_id: str
     ml_risk_score: float
     risk_category: RiskCategory
-    shap_top_features: List[SHAPFeature]
-    maneuver_advisory: Optional[ManeuverAdvisory] = None
+    shap_top_features: list[SHAPFeature]
+    maneuver_advisory: ManeuverAdvisory | None = None
 
 
 class TLECreate(BaseModel):
     """POST body for ingesting TLE data from AI-1."""
     object_id: str
-    object_name: Optional[str] = None
-    object_type: Optional[ObjectType] = None
+    object_name: str | None = None
+    object_type: ObjectType | None = None
     line1: str
     line2: str
     epoch: datetime
-    inclination_deg: Optional[float] = None
-    eccentricity: Optional[float] = None
-    mean_motion_rev_day: Optional[float] = None
+    inclination_deg: float | None = None
+    eccentricity: float | None = None
+    mean_motion_rev_day: float | None = None

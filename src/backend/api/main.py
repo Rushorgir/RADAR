@@ -1,18 +1,18 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
 
-from src.backend.db.connection import engine, Base
-
-from src.backend.api.routes_tle import router as tle_router
 from src.backend.api.routes_conjunction import router as conjunction_router
-from src.backend.api.routes_risk import router as risk_router
-from src.backend.api.routes_maneuver import router as maneuver_router
 from src.backend.api.routes_dashboard import router as dashboard_router
 from src.backend.api.routes_ingest import router as ingest_router
+from src.backend.api.routes_maneuver import router as maneuver_router
+from src.backend.api.routes_risk import router as risk_router
+from src.backend.api.routes_tle import router as tle_router
 from src.backend.api.websocket import router as websocket_router
+from src.backend.db.connection import Base, engine
 
 
 @asynccontextmanager

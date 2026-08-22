@@ -1,5 +1,5 @@
-import json
-from typing import Dict, Any
+from typing import Any
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
@@ -19,7 +19,7 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
             logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: Dict[str, Any]):
+    async def broadcast(self, message: dict[str, Any]):
         """Sends a JSON message to all connected clients."""
         disconnected_clients = []
         for connection in self.active_connections:
@@ -33,7 +33,7 @@ class ConnectionManager:
         for dead_conn in disconnected_clients:
             self.disconnect(dead_conn)
 
-    async def broadcast_event(self, event_type: str, payload: Dict[str, Any]):
+    async def broadcast_event(self, event_type: str, payload: dict[str, Any]):
         """Helper to format standardized broadcast messages."""
         message = {
             "type": event_type,

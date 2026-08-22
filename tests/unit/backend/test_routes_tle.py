@@ -1,7 +1,7 @@
-import pytest
-from src.backend.db.models import TLEModel
-from src.backend.db import crud
 from datetime import datetime
+
+from src.backend.db import crud
+
 
 def test_get_tle_catalog(client, db_session):
     # Seed data

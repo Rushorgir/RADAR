@@ -1,13 +1,13 @@
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-from datetime import datetime, timedelta
 
 from src.backend.db.models import ConjunctionEventModel, TLEModel
 
-
 # --- Conjunction Event CRUD ---
 
-def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_category: str = None, sort_by: str = "tca"):
+def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_category: str | None = None, sort_by: str = "tca"):
     query = db.query(ConjunctionEventModel)
     
     if risk_category:
@@ -22,7 +22,7 @@ def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_ca
         
     return query.offset(skip).limit(limit).all()
 
-def get_conjunction_events_count(db: Session, risk_category: str = None) -> int:
+def get_conjunction_events_count(db: Session, risk_category: str | None = None) -> int:
     query = db.query(func.count(ConjunctionEventModel.event_id))
     if risk_category:
         query = query.filter(ConjunctionEventModel.risk_category == risk_category)
@@ -91,7 +91,7 @@ def get_total_tracked_objects(db: Session) -> int:
     return db.query(func.count(func.distinct(TLEModel.object_id))).scalar() or 0
 
 def get_recent_high_risk_events(db: Session, hours: int = 24):
-    threshold_time = datetime.utcnow() - timedelta(hours=hours)
+    threshold_time = datetime.now(timezone.utc) - timedelta(hours=hours)
     return db.query(ConjunctionEventModel).filter(
         ConjunctionEventModel.risk_category == "HIGH",
         ConjunctionEventModel.created_at >= threshold_time

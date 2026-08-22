@@ -1,6 +1,7 @@
-import pytest
-from src.backend.db import crud
 from datetime import datetime
+
+from src.backend.db import crud
+
 
 def test_get_dashboard_summary(client, db_session):
     # Create TLE

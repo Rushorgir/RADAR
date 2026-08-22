@@ -1,7 +1,7 @@
-import pytest
-from src.backend.db.models import ConjunctionEventModel, TLEModel
 from datetime import datetime
-import json
+
+from src.backend.db.models import ConjunctionEventModel, TLEModel
+
 
 def test_conjunction_event_model():
     event = ConjunctionEventModel(

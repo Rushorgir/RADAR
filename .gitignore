@@ -47,3 +47,9 @@ coverage.xml
 
 # Docker
 *.log
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+radar.db
