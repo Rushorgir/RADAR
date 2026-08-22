@@ -1,11 +1,11 @@
-# 🛰️ RADAR — OrbitGuard: AI-Assisted Space Debris Collision Risk Detection & Avoidance
+# 🛰️ RADAR: Risk Assessment & Debris Avoidance Routing
 
 > **VITISH 2026 / SIH Internal Hackathon — Problem Statement #17**
 > Space Technology – Space Debris Detection & Collision Avoidance
 
 ## Overview
 
-OrbitGuard is a modular Space Situational Awareness (SSA) system that:
+RADAR is a modular Space Situational Awareness (SSA) system that:
 1. Ingests TLE data and propagates orbits via SGP4
 2. Screens for conjunction events using a two-stage coarse+fine filter
 3. Computes Probability of Collision (Pc) via Foster's 2D method
@@ -22,8 +22,8 @@ OrbitGuard is a modular Space Situational Awareness (SSA) system that:
 | **AI-1** Orbital Mechanics Lead | Anas | TLE ingestion, SGP4 propagation, coordinate transforms | `src/ingestion/`, `src/propagation/`, `src/shared/frames/` |
 | **AI-2** Conjunction & Math Lead | Rushaan | Conjunction screening, Pc calculation | `src/conjunction/` |
 | **AI-3** ML & Decision Support | Udarsh | Feature engineering, LightGBM, SHAP, TabPFN, maneuver advisory | `src/ml/`, `src/maneuver/` |
-| **Web** Full-Stack Developer | Balaganesh | FastAPI backend, React + Cesium.js frontend, DB | `src/backend/`, `src/frontend/` |
-| **QA & Speaker** | Mahalakshmi | Testing, documentation, pitch, demo | `docs/`, `tests/` |
+| **Frontend** Web Developer | Balaganesh | React + Cesium.js dashboard | `src/frontend/` |
+| **Backend & QA** | Mahalakshmi | FastAPI backend, DB, Testing, documentation | `src/backend/`, `docs/`, `tests/` |
 
 ---
 
