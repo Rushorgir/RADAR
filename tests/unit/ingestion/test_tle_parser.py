@@ -1,7 +1,5 @@
 """Unit tests for src.ingestion.tle_parser (Owner: Anas)."""
 
-from datetime import datetime, timezone
-
 import pytest
 
 from src.ingestion.models import TLEParseError
