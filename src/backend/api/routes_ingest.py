@@ -1,18 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from loguru import logger
 import json
 
-from src.backend.db.connection import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
+from sqlalchemy.orm import Session
+
+from src.backend.api.websocket import manager
 from src.backend.db import crud
+from src.backend.db.connection import get_db
 from src.backend.schemas.api_schemas import (
-    ConjunctionEventCreate, 
+    ConjunctionEventCreate,
     ConjunctionEventResponse,
     RiskScoreUpdate,
     TLECreate,
-    TLEDataResponse
+    TLEDataResponse,
 )
-from src.backend.api.websocket import manager
 
 router = APIRouter(prefix="/api/ingest", tags=["Ingest"])
 
@@ -46,7 +47,7 @@ async def ingest_risk_score(risk_data: RiskScoreUpdate, db: Session = Depends(ge
     data_dict = json.loads(risk_data.model_dump_json())
     
     # Map ManeuverAdvisory fields specifically
-    if "maneuver_advisory" in data_dict and data_dict["maneuver_advisory"]:
+    if data_dict.get("maneuver_advisory"):
         adv = data_dict.pop("maneuver_advisory")
         data_dict["maneuver_delta_v_m_s"] = adv.get("delta_v_m_s")
         data_dict["maneuver_burn_direction"] = adv.get("burn_direction")

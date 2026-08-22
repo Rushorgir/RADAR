@@ -1,9 +1,9 @@
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
 
-from src.backend.db.connection import get_db
 from src.backend.db import crud
+from src.backend.db.connection import get_db
 from src.backend.schemas.api_schemas import ConjunctionEventResponse, PaginatedResponse
 
 router = APIRouter(prefix="/api/conjunctions", tags=["Conjunctions"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/conjunctions", tags=["Conjunctions"])
 async def get_conjunction_events(
     skip: int = Query(0, ge=0), 
     limit: int = Query(100, ge=1, le=1000), 
-    risk_category: Optional[str] = Query(None, description="Filter by HIGH, MEDIUM, LOW"),
+    risk_category: str | None = Query(None, description="Filter by HIGH, MEDIUM, LOW"),
     sort_by: str = Query("tca", description="Sort by tca, pc, or ml_risk_score"),
     db: Session = Depends(get_db)
 ):

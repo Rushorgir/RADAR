@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Float, DateTime, Integer, JSON
+from sqlalchemy import JSON, Column, DateTime, Float, Integer, String
+
 from src.backend.db.connection import Base
 
 
@@ -47,7 +48,7 @@ class ConjunctionEventModel(Base):
     maneuver_new_miss_distance_km = Column(Float, nullable=True)
     maneuver_fuel_cost_estimate_kg = Column(Float, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class TLEModel(Base):
@@ -71,4 +72,4 @@ class TLEModel(Base):
     eccentricity = Column(Float, nullable=True)
     mean_motion_rev_day = Column(Float, nullable=True)
 
-    fetched_at = Column(DateTime, default=datetime.utcnow)
+    fetched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

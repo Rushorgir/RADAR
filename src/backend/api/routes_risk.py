@@ -1,14 +1,15 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
 
-from src.backend.db.connection import get_db
 from src.backend.db import crud
+from src.backend.db.connection import get_db
 
 router = APIRouter(prefix="/api/risk", tags=["Risk"])
 
 @router.get("/{event_id}")
-async def get_risk_score(event_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+async def get_risk_score(event_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
     """Return ML-ranked risk scores and SHAP explainability payloads for an event."""
     event = crud.get_conjunction_event_by_id(db, event_id)
     if not event:

@@ -8,8 +8,7 @@ Switch by setting the DATABASE_URL environment variable.
 import os
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # ---------------------------------------------------------------------------
 # Database URL: default to SQLite file in project root for local dev.
@@ -28,7 +27,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
-    pass
 
 
 def get_db():
