@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import desc, func
+from sqlalchemy import case, desc, func
 from sqlalchemy.orm import Session
 
 from src.backend.db.models import ConjunctionEventModel, TLEModel
+from src.shared.constants.physical import PC
 
 # --- Conjunction Event CRUD ---
 
@@ -55,10 +56,37 @@ def update_conjunction_event(db: Session, event_id: str, update_data: dict) -> C
 # --- TLE Data CRUD ---
 
 def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(TLEModel).order_by(TLEModel.object_id).offset(skip).limit(limit).all()
+    """
+    Return one row per tracked object -- its most recent TLE.
+
+    TLEModel deliberately keeps every historical TLE for an object (see the
+    model docstring), so a plain `SELECT * FROM tle_data` would list the same
+    physical satellite/debris piece once per re-ingestion of the catalog
+    instead of once per object, inflating "how many objects are we
+    tracking" counts (and duplicating its dot on the globe) every time the
+    ingestion pipeline is re-run. Join back to a per-object MAX(epoch)
+    subquery to keep only the latest snapshot of each.
+    """
+    latest_epoch = (
+        db.query(TLEModel.object_id, func.max(TLEModel.epoch).label("max_epoch"))
+        .group_by(TLEModel.object_id)
+        .subquery()
+    )
+    return (
+        db.query(TLEModel)
+        .join(
+            latest_epoch,
+            (TLEModel.object_id == latest_epoch.c.object_id)
+            & (TLEModel.epoch == latest_epoch.c.max_epoch),
+        )
+        .order_by(TLEModel.object_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 def get_tle_catalog_count(db: Session) -> int:
-    return db.query(func.count(TLEModel.id)).scalar() or 0
+    return db.query(func.count(func.distinct(TLEModel.object_id))).scalar() or 0
 
 def get_tle_by_object_id(db: Session, object_id: str) -> TLEModel | None:
     # Returns the most recent TLE for the object
@@ -74,17 +102,33 @@ def create_tle(db: Session, tle_data: dict) -> TLEModel:
 
 # --- Dashboard Aggregations ---
 
+def _effective_risk_category():
+    """
+    risk_category is populated by AI-3's ML ranking model, which doesn't
+    exist yet -- every event AI-2's real screening pipeline produces today
+    has it as null. Without a fallback, "how many high-risk events" would
+    always read 0 no matter how dangerous the real conjunctions are.
+    Fall back to a plain Pc threshold (same cutoffs the frontend already
+    uses -- src/shared/constants/physical.py's PC singleton) so the
+    dashboard reflects real risk today, while still preferring
+    risk_category once AI-3 actually sets it.
+    """
+    return case(
+        (ConjunctionEventModel.risk_category.isnot(None), ConjunctionEventModel.risk_category),
+        (ConjunctionEventModel.pc >= PC.PC_HIGH_RISK, "HIGH"),
+        (ConjunctionEventModel.pc >= PC.PC_MEDIUM_RISK, "MEDIUM"),
+        else_="LOW",
+    )
+
 def get_risk_distribution(db: Session) -> dict[str, int]:
-    result = db.query(
-        ConjunctionEventModel.risk_category,
-        func.count(ConjunctionEventModel.event_id)
-    ).group_by(ConjunctionEventModel.risk_category).all()
-    
+    category = _effective_risk_category()
+    result = db.query(category, func.count(ConjunctionEventModel.event_id)).group_by(category).all()
+
     # Initialize with default counts
     dist = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
-    for category, count in result:
-        if category in dist:
-            dist[category] = count
+    for cat, count in result:
+        if cat in dist:
+            dist[cat] = count
     return dist
 
 def get_total_tracked_objects(db: Session) -> int:
@@ -93,6 +137,6 @@ def get_total_tracked_objects(db: Session) -> int:
 def get_recent_high_risk_events(db: Session, hours: int = 24):
     threshold_time = datetime.now(timezone.utc) - timedelta(hours=hours)
     return db.query(ConjunctionEventModel).filter(
-        ConjunctionEventModel.risk_category == "HIGH",
+        _effective_risk_category() == "HIGH",
         ConjunctionEventModel.created_at >= threshold_time
     ).order_by(desc(ConjunctionEventModel.created_at)).limit(10).all()

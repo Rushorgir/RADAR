@@ -16,29 +16,35 @@ with the working dataset the rest of the team's modules can build against.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import numpy as np
-from loguru import logger
 import httpx
+from loguru import logger
 
-from src.ingestion import TLECache, build_default_dataset
-from src.propagation import is_positive_definite, propagate_catalog_arrays
 from src.conjunction.pipeline import ConjunctionPipeline
+from src.ingestion import TLECache, build_default_dataset
+from src.propagation import propagate_catalog_arrays
+
 
 def post_to_backend(dataset, events):
     base_url = "http://127.0.0.1:8000/api/ingest"
-    
+
     print("\n=== Step 5/5: Posting to Backend API ===")
-    
+
+    # httpx doesn't raise on 4xx/5xx by itself -- only real network failures
+    # (connection refused, timeout, ...) raise an exception. Without checking
+    # response.status_code, a validation error or backend bug on every single
+    # item would look identical to a clean run: this loop would print
+    # "complete!" having silently posted nothing.
+    tle_ok = tle_failed = 0
     with httpx.Client(timeout=30.0) as client:
-        print("  -> Posting TLEs...")
+        print(f"  -> Posting {len(dataset)} TLEs...")
         for tle in dataset:
             tle_payload = {
                 "object_id": str(tle.norad_id),
@@ -49,19 +55,34 @@ def post_to_backend(dataset, events):
                 "epoch": tle.epoch.isoformat(),
             }
             try:
-                client.post(f"{base_url}/tle", json=tle_payload)
-            except Exception as e:
-                logger.error(f"Failed to post TLE {tle.object_id}: {e}")
-                
+                response = client.post(f"{base_url}/tle", json=tle_payload)
+                if response.status_code >= 400:
+                    tle_failed += 1
+                    logger.error(f"TLE {tle.norad_id} rejected ({response.status_code}): {response.text[:200]}")
+                else:
+                    tle_ok += 1
+            except httpx.HTTPError as e:
+                tle_failed += 1
+                logger.error(f"Failed to post TLE {tle.norad_id}: {e}")
+
+        event_ok = event_failed = 0
         print(f"  -> Posting {len(events)} Conjunction Events...")
         for event in events:
             # We dump the pydantic model to json dict
             event_payload = json.loads(event.model_dump_json())
             try:
-                client.post(f"{base_url}/conjunction", json=event_payload)
-            except Exception as e:
+                response = client.post(f"{base_url}/conjunction", json=event_payload)
+                if response.status_code >= 400:
+                    event_failed += 1
+                    logger.error(f"Event {event.event_id} rejected ({response.status_code}): {response.text[:200]}")
+                else:
+                    event_ok += 1
+            except httpx.HTTPError as e:
+                event_failed += 1
                 logger.error(f"Failed to post Conjunction Event {event.event_id}: {e}")
-                
+
+    print(f"  -> TLEs: {tle_ok} ok, {tle_failed} failed")
+    print(f"  -> Conjunction events: {event_ok} ok, {event_failed} failed")
     print("  -> Backend ingestion complete!")
 
 def main() -> None:
