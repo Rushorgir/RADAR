@@ -37,12 +37,25 @@ def evaluate_thresholds(y_true, probs, t_high, t_med):
         "pct_high": pct_high
     }
 
+DEFAULT_MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "improved"))
+
 def main():
     print("Loading data...")
-    df = load_data()
+    try:
+        df = load_data()
+    except FileNotFoundError as e:
+        print(f"ERROR: Could not load training dataset ({e}).")
+        print("Please place train_data.csv in data/cdm_reference/ or set TRAIN_DATA_PATH env var.")
+        return
+        
     df_feat = build_features(df)
     
-    with open(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\feature_schema.json", "r") as f:
+    schema_path = os.path.join(DEFAULT_MODEL_DIR, "feature_schema.json")
+    if not os.path.exists(schema_path):
+        print(f"ERROR: Feature schema not found at {schema_path}.")
+        return
+        
+    with open(schema_path, "r") as f:
         all_features = json.load(f)
         
     X = df_feat.drop(columns=['target'])
@@ -60,11 +73,13 @@ def main():
     X_test, y_test = X_temp.iloc[test_idx], y_temp.iloc[test_idx]
     
     # Load model
-    model = lgb.Booster(model_file=r"C:\Users\Udarsh\RADAR\src\ml\models\improved\lightgbm_risk_model.txt")
+    model_path = os.path.join(DEFAULT_MODEL_DIR, "lightgbm_risk_model.txt")
+    model = lgb.Booster(model_file=model_path)
     
     val_probs = model.predict(X_val[all_features])
     
-    with open(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\thresholds.json", "r") as f:
+    thresholds_path = os.path.join(DEFAULT_MODEL_DIR, "thresholds.json")
+    with open(thresholds_path, "r") as f:
         thresholds_config = json.load(f)
         prod_t_high = float(thresholds_config["high"])
         prod_t_med = float(thresholds_config["med"])

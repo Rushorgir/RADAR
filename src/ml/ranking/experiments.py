@@ -17,8 +17,16 @@ def get_target_class(final_risk):
     elif final_risk >= -8.0: return 1
     else: return 0
 
-def load_data():
-    filepath = r"C:\Users\Udarsh\Downloads\DATASETS\train_data\train_data.csv"
+DEFAULT_TRAIN_DATA_PATH = os.getenv(
+    "TRAIN_DATA_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "cdm_reference", "train_data.csv")),
+)
+DEFAULT_MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "improved"))
+
+def load_data(filepath: str | None = None):
+    filepath = filepath or DEFAULT_TRAIN_DATA_PATH
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Training dataset not found at {filepath}")
     df = pd.read_csv(filepath)
     # Sort by event_id and time_to_tca descending (so chronological is top-to-bottom for each event)
     df = df.sort_values(by=['event_id', 'time_to_tca'], ascending=[True, False]).reset_index(drop=True)
@@ -268,12 +276,13 @@ def run_experiments():
             "features": all_features
         }, f, indent=4)
         
-    m_all.save_model(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\lightgbm_risk_model.txt")
+    os.makedirs(DEFAULT_MODEL_DIR, exist_ok=True)
+    m_all.save_model(os.path.join(DEFAULT_MODEL_DIR, "lightgbm_risk_model.txt"))
     
-    with open(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\feature_schema.json", "w") as f:
+    with open(os.path.join(DEFAULT_MODEL_DIR, "feature_schema.json"), "w") as f:
         json.dump(all_features, f)
         
-    with open(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\thresholds.json", "w") as f:
+    with open(os.path.join(DEFAULT_MODEL_DIR, "thresholds.json"), "w") as f:
         json.dump({"high": t_high_all, "med": t_med_all}, f)
 
 if __name__ == '__main__':

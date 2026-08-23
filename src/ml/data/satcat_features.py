@@ -4,9 +4,14 @@ import pandas as pd
 import numpy as np
 import os
 
+DEFAULT_SATCAT_PATH = os.getenv(
+    "SATCAT_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "satcat.csv")),
+)
+
 class SatcatEnricher:
-    def __init__(self, satcat_path: str = r"C:\Users\Udarsh\Downloads\DATASETS\satcat.csv"):
-        self.satcat_path = satcat_path
+    def __init__(self, satcat_path: str | None = None):
+        self.satcat_path = satcat_path or DEFAULT_SATCAT_PATH
         self.satcat_df = None
 
     def load(self):
@@ -14,7 +19,9 @@ class SatcatEnricher:
         Loads the SATCAT dataset and derives orbital regimes.
         """
         if not os.path.exists(self.satcat_path):
-            raise FileNotFoundError(f"SATCAT file not found at {self.satcat_path}")
+            print(f"INFO: SATCAT file not found at {self.satcat_path}, using default mappings.")
+            self.satcat_df = pd.DataFrame(columns=['NORAD_CAT_ID', 'orbital_regime', 'APOGEE', 'PERIGEE', 'INCLINATION'])
+            return
             
         self.satcat_df = pd.read_csv(self.satcat_path)
         

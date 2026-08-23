@@ -40,11 +40,19 @@ def load_and_prepare_data(filepath):
     
     return df_feat
 
+DEFAULT_TRAIN_DATA_PATH = os.getenv(
+    "TRAIN_DATA_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "cdm_reference", "train_data.csv")),
+)
+
 def main():
-    train_path = r"C:\Users\Udarsh\Downloads\DATASETS\train_data\train_data.csv"
-    
+    train_path = DEFAULT_TRAIN_DATA_PATH
+    if not os.path.exists(train_path):
+        print(f"ERROR: Training dataset not found at {train_path}.")
+        print("Please place train_data.csv in data/cdm_reference/ or set TRAIN_DATA_PATH env var.")
+        return
+        
     start_time = time.time()
-    
     df = load_and_prepare_data(train_path)
     
     print("\n1. Class distribution (Total):")

@@ -7,24 +7,37 @@ import json
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-import matplotlib.pyplot as plt
 
 from src.ml.ranking.experiments import load_data, build_features
 
 def main():
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("INFO: 'matplotlib' is not installed. Skipping plot rendering.")
+        return
+    
     model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'improved', 'lightgbm_risk_model.txt'))
     schema_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'improved', 'feature_schema.json'))
     
     if not os.path.exists(model_path):
-        print("Model not found.")
+        print(f"Model not found at {model_path}.")
+        return
+    if not os.path.exists(schema_path):
+        print(f"Feature schema not found at {schema_path}.")
         return
         
     model = lgb.Booster(model_file=model_path)
     with open(schema_path, "r") as f:
         features = json.load(f)
         
+    try:
+        df = load_data()
+    except Exception as e:
+        print(f"INFO: Could not load training data ({e}). Skipping offline plot generation.")
+        return
+        
     print("Loading data for SHAP analysis...")
-    df = load_data()
     df_feat = build_features(df)
     
     X = df_feat[features]

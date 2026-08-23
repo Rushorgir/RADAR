@@ -6,11 +6,9 @@ import time
 import json
 import numpy as np
 import pandas as pd
-import torch
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 import lightgbm as lgb
-from tabpfn import TabPFNClassifier
 
 from src.ml.ranking.experiments import load_data, build_features
 
@@ -34,6 +32,14 @@ def main():
     print("       TABPFN BENCHMARK PIPELINE       ")
     print("=======================================")
     
+    try:
+        import torch
+        from tabpfn import TabPFNClassifier
+    except ImportError as e:
+        print(f"INFO: Required benchmark library not installed ({e}).")
+        print("To run the TabPFN benchmark, install PyTorch and TabPFN: pip install torch tabpfn")
+        return
+        
     # 1. Hardware checks
     has_cuda = torch.cuda.is_available()
     device = 'cuda' if has_cuda else 'cpu'
@@ -46,14 +52,22 @@ def main():
     # 2. Authentication check
     has_token = "TABPFN_TOKEN" in os.environ
     print(f"TABPFN_TOKEN present in os.environ: {has_token}")
-    # We won't exit here, we'll let TabPFN natively fail if it's truly missing.
         
     print("\nLoading data...")
-    t0 = time.time()
-    df = load_data()
+    try:
+        df = load_data()
+    except Exception as e:
+        print(f"ERROR: Could not load training data ({e}).")
+        return
     df_feat = build_features(df)
     
-    with open(r"C:\Users\Udarsh\RADAR\src\ml\models\improved\feature_schema.json", "r") as f:
+    DEFAULT_MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "improved"))
+    schema_path = os.path.join(DEFAULT_MODEL_DIR, "feature_schema.json")
+    if not os.path.exists(schema_path):
+        print(f"ERROR: Feature schema not found at {schema_path}")
+        return
+        
+    with open(schema_path, "r") as f:
         all_features = json.load(f)
         
     X = df_feat.drop(columns=['target'])
@@ -169,7 +183,12 @@ def main():
     tab_res = evaluate_predictions(y_test, tabpfn_preds, "TabPFN")
     
     print("\n--- Evaluating LightGBM on EXACT SAME Subset Test ---")
-    lgb_model = lgb.Booster(model_file=r"C:\Users\Udarsh\RADAR\src\ml\models\improved\lightgbm_risk_model.txt")
+    model_path = os.path.join(DEFAULT_MODEL_DIR, "lightgbm_risk_model.txt")
+    if not os.path.exists(model_path):
+        print(f"ERROR: LightGBM model not found at {model_path}")
+        return
+        
+    lgb_model = lgb.Booster(model_file=model_path)
     
     start_lgb_inf = time.time()
     # LightGBM gracefully ignores features it wasn't trained on, but we must pass exactly what it expects
@@ -195,7 +214,9 @@ def main():
     print(json.dumps(lgb_res, indent=2))
     
     # Save the report
-    report_path = r"C:\Users\Udarsh\RADAR\docs\AI3_TABPFN_BENCHMARK_REPORT.md"
+    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs"))
+    os.makedirs(docs_dir, exist_ok=True)
+    report_path = os.path.join(docs_dir, "AI3_TABPFN_BENCHMARK_REPORT.md")
     
     report_md = f"""# AI-3 TabPFN vs LightGBM Benchmark Report
 
