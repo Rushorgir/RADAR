@@ -1348,3 +1348,86 @@
   }
 }
 
+/* ==========================================================================
+   RADAR BRAND LOGO — Official image asset
+   ========================================================================== */
+
+/* Shared base — preserves aspect ratio, never distorts */
+.radar-brand-logo {
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* TopBar: compact, does not dominate the header */
+.radar-topbar-logo {
+  height: 42px;
+  width: auto;
+  max-width: 220px;
+}
+
+/* Landing navbar: visible horizontal lockup */
+.landing-nav-radar-logo {
+  height: 44px;
+  width: auto;
+  max-width: 240px;
+}
+
+/* Footer: slightly smaller */
+.landing-footer-radar-logo {
+  height: 40px;
+  width: auto;
+  max-width: 200px;
+  opacity: 0.85;
+}
+
+/* Auth visual pane */
+.auth-radar-logo {
+  height: 44px;
+  width: auto;
+  max-width: 200px;
+}
+
+/* Auth transition overlay */
+.auth-transition-radar-logo {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+}
+
+/* Ensure landing content renders above the orbital canvas */
+.landing-header {
+  position: sticky;
+  z-index: 50;
+}
+.landing-content-wrap {
+  position: relative;
+  z-index: 1;
+}
+
+/* Responsive logo scaling */
+@media (max-width: 860px) {
+  .radar-topbar-logo {
+    height: 34px;
+    max-width: 160px;
+  }
+  .landing-nav-radar-logo {
+    height: 36px;
+    max-width: 180px;
+  }
+  .landing-footer-radar-logo {
+    height: 32px;
+    max-width: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .radar-topbar-logo {
+    height: 28px;
+    max-width: 130px;
+  }
+  .landing-nav-radar-logo {
+    height: 30px;
+    max-width: 140px;
+  }
+}

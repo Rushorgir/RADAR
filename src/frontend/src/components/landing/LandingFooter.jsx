@@ -1,5 +1,6 @@
 import { useRouter } from "../../context/Router";
 import { useAuth } from "../../context/AuthContext";
+import RadarLogo from "../shared/RadarLogo";
 
 export default function LandingFooter() {
   const { navigate } = useRouter();
@@ -41,19 +42,14 @@ export default function LandingFooter() {
       {/* Footer Meta Grid */}
       <div className="landing-footer-grid">
         <div className="footer-brand-col">
-          <div className="landing-logo-mark">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="var(--signal)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
-              <circle cx="12" cy="12" r="6" stroke="var(--signal)" strokeWidth="1.5" />
-              <circle cx="12" cy="12" r="2" fill="var(--signal)" />
-            </svg>
-            <span className="landing-logo-text" style={{ fontSize: 16 }}>RADAR</span>
+          <div style={{ marginBottom: 8 }}>
+            <RadarLogo height={42} className="landing-footer-radar-logo" />
           </div>
           <p className="footer-tagline mono">
-            Risk Assessment & Debris Avoidance Routing<br />
             Defense & Commercial Space Situational Awareness
           </p>
         </div>
+
 
         <div className="footer-links-col mono">
           <span className="eyebrow">SYSTEM</span>

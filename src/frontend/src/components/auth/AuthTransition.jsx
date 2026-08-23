@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "../../context/Router";
+import RadarLogo from "../shared/RadarLogo";
 
 export default function AuthTransition({ operator, onComplete }) {
   const { navigate } = useRouter();
@@ -23,14 +24,10 @@ export default function AuthTransition({ operator, onComplete }) {
   return (
     <div className="auth-transition-overlay">
       <div className="auth-transition-card hud-frame mono">
-        <div className="landing-logo-mark" style={{ justifyContent: "center", marginBottom: 12 }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="var(--signal)" strokeWidth="1.5" strokeDasharray="3 3" />
-            <circle cx="12" cy="12" r="6" stroke="var(--signal)" strokeWidth="1.5" />
-            <circle cx="12" cy="12" r="2" fill="var(--signal)" />
-          </svg>
-          <span className="landing-logo-text" style={{ fontSize: 20 }}>RADAR</span>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <RadarLogo height={48} className="auth-transition-radar-logo" />
         </div>
+
 
         <div className="eyebrow" style={{ color: "var(--signal)", textAlign: "center", fontSize: 11 }}>
           ✓ AUTHENTICATION VERIFIED

@@ -5,6 +5,7 @@ import SystemStatusStrip from "./SystemStatusStrip";
 import CapabilitiesGrid from "./CapabilitiesGrid";
 import LiveTrackingPreview from "./LiveTrackingPreview";
 import LandingFooter from "./LandingFooter";
+import OrbitalBackground from "./OrbitalBackground";
 
 export default function LandingPage({ dashboardStats, objectsCount }) {
   useEffect(() => {
@@ -13,9 +14,8 @@ export default function LandingPage({ dashboardStats, objectsCount }) {
 
   return (
     <div className="landing-container scrollbar-thin">
-      {/* Subtle deep space background overlay */}
-      <div className="landing-bg-starfield" />
-      <div className="landing-bg-glow" />
+      {/* Orbital canvas — behind all content, landing page only */}
+      <OrbitalBackground />
 
       {/* Top Aerospace Navigation */}
       <LandingNav />
@@ -31,3 +31,4 @@ export default function LandingPage({ dashboardStats, objectsCount }) {
     </div>
   );
 }
+

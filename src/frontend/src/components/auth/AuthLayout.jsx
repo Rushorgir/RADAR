@@ -1,4 +1,5 @@
 import { useRouter } from "../../context/Router";
+import RadarLogo from "../shared/RadarLogo";
 
 export default function AuthLayout({ children, title, subtitle }) {
   const { navigate } = useRouter();
@@ -28,18 +29,12 @@ export default function AuthLayout({ children, title, subtitle }) {
         {/* Left Side: Aerospace Visual & Telemetry */}
         <div className="auth-visual-pane hud-frame">
           <div className="auth-visual-header">
-            <div className="landing-logo-mark">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="var(--signal)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
-                <circle cx="12" cy="12" r="6" stroke="var(--signal)" strokeWidth="1.5" />
-                <circle cx="12" cy="12" r="2" fill="var(--signal)" />
-                <line x1="12" y1="2" x2="12" y2="22" stroke="var(--signal)" strokeWidth="1" opacity="0.4" />
-                <line x1="2" y1="12" x2="22" y2="12" stroke="var(--signal)" strokeWidth="1" opacity="0.4" />
-              </svg>
-              <span className="landing-logo-text" style={{ fontSize: 18 }}>RADAR</span>
+            <div style={{ marginBottom: 6 }}>
+              <RadarLogo height={44} className="auth-radar-logo" />
             </div>
             <div className="eyebrow" style={{ marginTop: 2 }}>ORBITAL INTELLIGENCE PLATFORM</div>
           </div>
+
 
           <div className="auth-visual-core">
             <h2 className="auth-tactical-title">

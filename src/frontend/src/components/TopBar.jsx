@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import logoUrl from "../assets/radar-logo.svg";
+import RadarLogo from "./shared/RadarLogo";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "../context/Router";
+
 
 const MODES = [
   { id: "dashboard", label: "Overview" },
@@ -98,15 +99,15 @@ export default function TopBar({ mode, onChangeMode, _overallRiskStatus, objects
     <>
       <header className="top-header hud-frame">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img
-            className="radar-logo"
-            src={logoUrl}
-            alt="RADAR — Risk Assessment and Debris Avoidance Routing"
+          <div
             onClick={() => navigate("/")}
-            style={{ cursor: "pointer" }}
+            style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
             title="RADAR Overview // Click to return to landing"
-          />
+          >
+            <RadarLogo height={42} className="radar-topbar-logo" />
+          </div>
         </div>
+
 
         {timeControls}
 
