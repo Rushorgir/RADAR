@@ -1,34 +1,36 @@
 import { useEffect } from "react";
-import LandingNav from "./LandingNav";
-import LandingHero from "./LandingHero";
-import SystemStatusStrip from "./SystemStatusStrip";
-import CapabilitiesGrid from "./CapabilitiesGrid";
-import LiveTrackingPreview from "./LiveTrackingPreview";
-import LandingFooter from "./LandingFooter";
-import OrbitalBackground from "./OrbitalBackground";
+import CinematicNav from "./CinematicNav";
+import CinematicHero from "./CinematicHero";
+import heroBg from "../../assets/hero-bg.jpg";
 
-export default function LandingPage({ dashboardStats, objectsCount }) {
+export default function LandingPage() {
   useEffect(() => {
-    document.title = "RADAR // Orbital Intelligence & Collision Avoidance";
+    document.title = "RADAR // Risk Assessment & Debris Avoidance Routing";
   }, []);
 
   return (
-    <div className="landing-container scrollbar-thin">
-      {/* Orbital canvas — behind all content, landing page only */}
-      <OrbitalBackground />
+    <div className="cinematic-page">
+      {/* Full-viewport hero */}
+      <section className="cinematic-hero-section">
+        {/* Background image */}
+        <div
+          className="cinematic-bg"
+          style={{ backgroundImage: `url(${heroBg})` }}
+          aria-hidden="true"
+        />
 
-      {/* Top Aerospace Navigation */}
-      <LandingNav />
+        {/* Cinematic overlay — stronger left/bottom for text, fades right to reveal station */}
+        <div className="cinematic-overlay" aria-hidden="true" />
 
-      {/* Main Landing Sections */}
-      <main className="landing-content-wrap">
-        <LandingHero />
-        <SystemStatusStrip stats={dashboardStats} objectsCount={objectsCount} />
-        <CapabilitiesGrid />
-        <LiveTrackingPreview />
-        <LandingFooter />
-      </main>
+        {/* Navigation sits over the image */}
+        <CinematicNav />
+
+        {/* Thin 1px divider line below nav */}
+        <div className="cinematic-nav-rule" aria-hidden="true" />
+
+        {/* Hero copy — left-aligned */}
+        <CinematicHero />
+      </section>
     </div>
   );
 }
-

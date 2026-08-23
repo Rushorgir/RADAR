@@ -1431,3 +1431,359 @@
     max-width: 140px;
   }
 }
+
+/* ==========================================================================
+   CINEMATIC LANDING PAGE — ISS Hero Redesign
+   Scope: .cinematic-page and its children only.
+   Does NOT touch dashboard, auth, or other pages.
+   ========================================================================== */
+
+/* Page container */
+.cinematic-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #000;
+  overflow-x: hidden;
+}
+
+/* ---- Hero section ---- */
+.cinematic-hero-section {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 560px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Background image — ISS over Earth */
+.cinematic-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  /* Position: keep spacecraft prominent right-center, Earth upper-left */
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  will-change: transform;
+}
+
+/* Cinematic overlay
+   - Stronger on the left third (behind text) fading to clear right
+   - Subtle bottom vignette
+   - Never fully opaque so the image breathes */
+.cinematic-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(2, 5, 14, 0.80) 0%,
+      rgba(2, 5, 14, 0.55) 35%,
+      rgba(2, 5, 14, 0.20) 62%,
+      rgba(2, 5, 14, 0.04) 100%
+    ),
+    linear-gradient(
+      to top,
+      rgba(2, 5, 14, 0.55) 0%,
+      rgba(2, 5, 14, 0) 35%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(2, 5, 14, 0.30) 0%,
+      rgba(2, 5, 14, 0) 20%
+    );
+  pointer-events: none;
+}
+
+/* ---- Navigation ---- */
+.cine-nav {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
+.cine-nav-logo {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.cine-logo-img {
+  height: 38px;
+  width: auto;
+  max-width: 200px;
+  /* Keep logo visible on dark background */
+  filter: brightness(1.05);
+}
+
+.cine-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.cine-nav-link {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.80);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: inherit;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+  position: relative;
+}
+
+.cine-nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.6);
+  transition: width 0.2s ease;
+}
+
+.cine-nav-link:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.cine-nav-link:hover::after {
+  width: 100%;
+}
+
+.cine-nav-link--auth {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+/* Thin vertical separator before auth link */
+.cine-nav-divider-v {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.20);
+  flex-shrink: 0;
+}
+
+/* ---- Horizontal rule beneath nav ---- */
+.cinematic-nav-rule {
+  position: relative;
+  z-index: 20;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  margin: 0 48px;
+  flex-shrink: 0;
+}
+
+/* ---- Hero content ---- */
+.cine-hero-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  padding: 0 48px 80px 48px;
+  max-width: 680px;   /* keeps text to left, lets spacecraft dominate right */
+}
+
+/* Eyebrow */
+.cine-eyebrow {
+  margin: 0 0 22px 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.60);
+  font-family: inherit;
+}
+
+/* Headline — large, editorial, lightweight */
+.cine-headline {
+  margin: 0 0 24px 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(44px, 6vw, 76px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+/* Description */
+.cine-description {
+  margin: 0 0 42px 0;
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.68);
+  max-width: 520px;
+  font-weight: 400;
+}
+
+/* ---- CTAs ---- */
+.cine-actions {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  flex-wrap: wrap;
+}
+
+/* Primary — outlined rectangle */
+.cine-btn-primary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.cine-btn-primary:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 1);
+}
+
+/* Secondary — text link with underline */
+.cine-btn-secondary {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+  position: relative;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.cine-btn-secondary::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.40);
+  transform-origin: left;
+  transition: background 0.18s ease;
+}
+
+.cine-btn-secondary:hover {
+  color: rgba(255, 255, 255, 0.95);
+  transform: translateX(3px);
+}
+
+.cine-btn-secondary:hover::after {
+  background: rgba(255, 255, 255, 0.80);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .cine-nav {
+    padding: 0 28px;
+    height: 64px;
+  }
+
+  .cinematic-nav-rule {
+    margin: 0 28px;
+  }
+
+  .cine-nav-right {
+    gap: 20px;
+  }
+
+  /* Hide inner nav links on tablet, keep auth */
+  .cine-nav-link:not(.cine-nav-link--auth) {
+    display: none;
+  }
+
+  .cine-hero-content {
+    padding: 0 28px 60px 28px;
+    max-width: 560px;
+  }
+
+  .cine-headline {
+    font-size: clamp(36px, 7vw, 54px);
+  }
+}
+
+@media (max-width: 600px) {
+  .cinematic-bg {
+    /* On mobile, shift right so spacecraft remains visible */
+    background-position: 70% 30%;
+  }
+
+  /* Stronger overlay on mobile so text is always readable */
+  .cinematic-overlay {
+    background:
+      linear-gradient(
+        to right,
+        rgba(2, 5, 14, 0.88) 0%,
+        rgba(2, 5, 14, 0.65) 55%,
+        rgba(2, 5, 14, 0.30) 100%
+      ),
+      linear-gradient(
+        to top,
+        rgba(2, 5, 14, 0.60) 0%,
+        rgba(2, 5, 14, 0) 40%
+      );
+  }
+
+  .cine-nav {
+    padding: 0 20px;
+    height: 58px;
+  }
+
+  .cinematic-nav-rule {
+    margin: 0 20px;
+  }
+
+  .cine-logo-img {
+    height: 30px;
+  }
+
+  .cine-hero-content {
+    padding: 0 20px 48px 20px;
+    max-width: 100%;
+    justify-content: flex-end;
+    padding-bottom: 60px;
+  }
+
+  .cine-headline {
+    font-size: clamp(32px, 9vw, 46px);
+  }
+
+  .cine-description {
+    font-size: 15px;
+  }
+
+  .cine-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .cine-btn-primary {
+    width: 100%;
+    text-align: center;
+  }
+}
