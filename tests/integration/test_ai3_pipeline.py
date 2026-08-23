@@ -1,11 +1,10 @@
 import pytest
 import sys
 import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-from ml.ranking.predictor import MLRiskPredictor
-from shared.interfaces.contracts import ConjunctionEvent, RiskCategory, OrbitalRegime, PropagatedState, ObjectType
 from datetime import datetime, timedelta, timezone
+
+from src.ml.ranking.predictor import MLRiskPredictor
+from src.shared.interfaces.contracts import ConjunctionEvent, RiskCategory, OrbitalRegime, PropagatedState, ObjectType
 
 def test_fallback_end_to_end_pipeline():
     """
@@ -15,7 +14,7 @@ def test_fallback_end_to_end_pipeline():
     # 1. Simulate AI-1 Propagated States
     primary_state = PropagatedState(
         object_id="SAT-12345",
-        epoch=datetime.utcnow(),
+        epoch=datetime.now(timezone.utc),
         position_eci_km=[7000.0, 0.0, 0.0], # LEO altitude ~600km
         velocity_eci_km_s=[0.0, 7.5, 0.0],
         cross_section_area_m2=12.5,
@@ -24,7 +23,7 @@ def test_fallback_end_to_end_pipeline():
     
     secondary_state = PropagatedState(
         object_id="DEB-99999",
-        epoch=datetime.utcnow(),
+        epoch=datetime.now(timezone.utc),
         position_eci_km=[7000.1, 0.1, 0.1],
         velocity_eci_km_s=[0.0, -7.5, 0.0],
         cross_section_area_m2=0.5,
@@ -67,7 +66,7 @@ def test_fallback_end_to_end_pipeline():
     risk_scored_event = predictor.predict_risk(event_dict)
     
     # 4. Assertions (Proving integration)
-    assert risk_scored_event.event_id == str(conjunction_event.event_id)
+    assert risk_scored_event.event_id == conjunction_event.event_id
     assert risk_scored_event.primary_id == "SAT-12345"
     assert risk_scored_event.secondary_id == "DEB-99999"
     assert risk_scored_event.miss_distance_km == 0.5

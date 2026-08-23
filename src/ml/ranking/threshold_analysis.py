@@ -103,8 +103,8 @@ def main():
         marker = " <--- PROD" if abs(t_high - prod_t_high) < 1e-5 else ""
         print(f"H_Thresh: {t_high:.2f}{marker} | H_Recall: {res['HIGH_r']:.4f} | H_Prec: {res['HIGH_p']:.4f} | H_F1: {res['HIGH_f1']:.4f} | Acc: {res['acc']:.4f} | Alerts: {res['pct_high']:.2f}%")
         
-        if abs(t_high - prod_t_high) < 1e-5:
-            prod_res = res
+    if prod_res is None:
+        prod_res = evaluate_thresholds(y_val, val_probs, prod_t_high, prod_t_med)
             
     print("\n--- Production Config Exact Evaluation ---")
     print(f"Production HIGH threshold: {prod_t_high}")
@@ -117,7 +117,7 @@ def main():
     print(f"Validation MEDIUM F1: {prod_res['MED_f1']}")
     print(f"Validation accuracy: {prod_res['acc']}")
 
-    test_probs = model.predict(X_test[all_features])
+    test_probs = np.asarray(model.predict(X_test[all_features]))
     
     with open("threshold_analysis_data.json", "w") as f:
         json.dump({

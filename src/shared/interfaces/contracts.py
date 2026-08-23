@@ -53,14 +53,14 @@ class PropagatedState(BaseModel):
     Output from AI-1 (Anas): A single object's state at a single epoch.
     Frame: ECI / J2000.
     """
-    object_id: str = Field(..., description="NORAD catalog ID or internal ID")
-    epoch: datetime = Field(..., description="UTC epoch of this state")
+    object_id: str = Field(description="NORAD catalog ID or internal ID")
+    epoch: datetime = Field(description="UTC epoch of this state")
     position_eci_km: list[float] = Field(
-        ..., min_length=3, max_length=3,
+        min_length=3, max_length=3,
         description="Position [x, y, z] in ECI J2000 frame (km)"
     )
     velocity_eci_km_s: list[float] = Field(
-        ..., min_length=3, max_length=3,
+        min_length=3, max_length=3,
         description="Velocity [vx, vy, vz] in ECI J2000 frame (km/s)"
     )
     covariance_6x6: list[list[float]] | None = Field(
@@ -109,11 +109,15 @@ class PropagatedEpoch(BaseModel):
 # ── AI-2 → AI-3 / Backend: Conjunction Event ──────────────────────────────────
 
 class ValidityFlags(BaseModel):
-    """Flags indicating whether Pc computation assumptions hold."""
+    """Flags indicating whether Pc computation assumptions and data quality checks hold."""
     covariance_valid: bool = True
     relative_velocity_sufficient: bool = True
     encounter_duration_short: bool = True
     covariance_positive_definite: bool = True
+    propagation_valid: bool = True
+    maneuver_detected_primary: bool = False
+    maneuver_detected_secondary: bool = False
+    notes: list[str] = Field(default_factory=list)
 
 
 class ConjunctionEvent(BaseModel):
@@ -122,11 +126,11 @@ class ConjunctionEvent(BaseModel):
     CDM-compatible structure.
     """
     event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    primary_id: str = Field(..., description="Primary (typically more massive) object ID")
-    secondary_id: str = Field(..., description="Secondary object ID")
-    tca: datetime = Field(..., description="Time of Closest Approach (UTC)")
-    miss_distance_km: float = Field(..., ge=0, description="Miss distance at TCA (km)")
-    relative_velocity_km_s: float = Field(..., ge=0, description="Relative velocity magnitude (km/s)")
+    primary_id: str = Field(description="Primary (typically more massive) object ID")
+    secondary_id: str = Field(description="Secondary object ID")
+    tca: datetime = Field(description="Time of Closest Approach (UTC)")
+    miss_distance_km: float = Field(ge=0, description="Miss distance at TCA (km)")
+    relative_velocity_km_s: float = Field(ge=0, description="Relative velocity magnitude (km/s)")
 
     # Encounter frame data
     relative_position_enc: list[float] | None = Field(
@@ -137,7 +141,7 @@ class ConjunctionEvent(BaseModel):
     )
 
     # Pc result
-    pc: float = Field(..., ge=0, le=1, description="Probability of Collision")
+    pc: float = Field(ge=0, le=1, description="Probability of Collision")
     pc_method: PcMethod = PcMethod.FOSTER_2D
     pc_confidence_lower: float | None = Field(None, description="MC lower confidence bound")
     pc_confidence_upper: float | None = Field(None, description="MC upper confidence bound")
@@ -168,9 +172,9 @@ class SHAPFeature(BaseModel):
 
 class ManeuverAdvisory(BaseModel):
     """Delta-v maneuver suggestion for collision avoidance."""
-    delta_v_m_s: float = Field(..., ge=0, description="Required delta-v magnitude (m/s)")
-    burn_direction: str = Field(..., description="ALONG_TRACK | RADIAL | CROSS_TRACK")
-    new_miss_distance_km: float = Field(..., ge=0)
+    delta_v_m_s: float = Field(ge=0, description="Required delta-v magnitude (m/s)")
+    burn_direction: str = Field(description="ALONG_TRACK | RADIAL | CROSS_TRACK")
+    new_miss_distance_km: float = Field(ge=0)
     risk_reduction_factor: float | None = None
     fuel_cost_estimate_kg: float | None = None
     confidence_limitations: str | None = "Decision support only. Not an autonomous command."
@@ -185,7 +189,7 @@ class RiskScoredEvent(BaseModel):
     relative_velocity_km_s: float
     pc: float
     
-    ml_risk_score: float = Field(..., ge=0, le=1)
+    ml_risk_score: float = Field(ge=0, le=1)
     risk_category: RiskCategory
     risk_threshold_used: str
     

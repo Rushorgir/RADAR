@@ -65,8 +65,8 @@ def current_positions(parsed_tles: list[ParsedTLE], at: datetime | None = None) 
     jd, fr = _epoch_to_jd_fr(at)
 
     object_ids: list[str] = []
-    r_teme_rows: list[list[float]] = []
-    v_teme_rows: list[list[float]] = []
+    r_teme_rows: list[tuple[float, float, float]] = []
+    v_teme_rows: list[tuple[float, float, float]] = []
     for tle in parsed_tles:
         try:
             satrec = Satrec.twoline2rv(tle.line1, tle.line2, WGS84)

@@ -25,7 +25,7 @@ def test_model_loading():
         
         # Test inference with dummy data
         dummy_data = np.zeros((1, len(FEATURES)))
-        preds = model.predict(dummy_data)
+        preds = np.asarray(model.predict(dummy_data))
         assert preds.shape == (1, 3)
         assert np.isclose(np.sum(preds), 1.0)
     else:

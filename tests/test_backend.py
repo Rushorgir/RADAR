@@ -97,6 +97,7 @@ def test_crud_tle_create_and_fetch(db_session):
     assert tle.object_id == "25544"
     assert tle.id is not None
     fetched = crud.get_tle_by_object_id(db_session, "25544")
+    assert fetched is not None
     assert fetched.id == tle.id
 
 
@@ -104,9 +105,12 @@ def test_crud_conjunction_lifecycle(db_session):
     """Create, fetch, count, and update a conjunction event."""
     event = crud.create_conjunction_event(db_session, _make_event("c-1", risk_category="HIGH"))
     assert event.event_id == "c-1"
-    assert crud.get_conjunction_event_by_id(db_session, "c-1").primary_id == "111"
+    fetched = crud.get_conjunction_event_by_id(db_session, "c-1")
+    assert fetched is not None
+    assert fetched.primary_id == "111"
     assert crud.get_conjunction_events_count(db_session) == 1
     updated = crud.update_conjunction_event(db_session, "c-1", {"ml_risk_score": 0.95})
+    assert updated is not None
     assert updated.ml_risk_score == 0.95
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import sys
+import numpy as np
 import lightgbm as lgb
 import pandas as pd
 from typing import Dict, Any
@@ -64,7 +66,7 @@ class MLRiskPredictor:
             
         operating_threshold_name = "Safety First"
         
-        preds = self.model.predict(df_feat)[0]
+        preds = np.asarray(self.model.predict(df_feat))[0]
         
         if preds[2] >= threshold_high:
             pred_class_idx = 2

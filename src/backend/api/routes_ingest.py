@@ -30,6 +30,9 @@ async def ingest_conjunction(event_data: ConjunctionEventCreate, db: Session = D
     else:
         db_event = crud.create_conjunction_event(db, data_dict)
 
+    if not db_event:
+        raise HTTPException(status_code=500, detail="Failed to persist conjunction event")
+
     response_model = ConjunctionEventResponse.model_validate(db_event)
     await manager.broadcast_event("NEW_CONJUNCTION", json.loads(response_model.model_dump_json()))
 

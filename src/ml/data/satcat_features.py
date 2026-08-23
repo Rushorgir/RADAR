@@ -93,11 +93,17 @@ class SatcatEnricher:
         if self.satcat_df is None:
             self.load()
             
+        satcat_df = (
+            self.satcat_df[['NORAD_CAT_ID', 'orbital_regime']]
+            if self.satcat_df is not None
+            else pd.DataFrame(columns=['NORAD_CAT_ID', 'orbital_regime'])
+        )
+            
         # Join primary object
         df['mission_id_numeric'] = pd.to_numeric(df['mission_id'], errors='coerce')
         
         merged = df.merge(
-            self.satcat_df[['NORAD_CAT_ID', 'orbital_regime']],
+            satcat_df,
             left_on='mission_id_numeric',
             right_on='NORAD_CAT_ID',
             how='left'

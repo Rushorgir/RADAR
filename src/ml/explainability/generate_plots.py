@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import shap
 import json
 import pandas as pd
@@ -12,7 +11,7 @@ from src.ml.ranking.experiments import load_data, build_features
 
 def main():
     try:
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt  # type: ignore
     except ImportError:
         print("INFO: 'matplotlib' is not installed. Skipping plot rendering.")
         return
@@ -41,7 +40,6 @@ def main():
     df_feat = build_features(df)
     
     X = df_feat[features]
-    y = df_feat['target']
     
     # We only need a subset for SHAP plots (background data)
     X_sample = X.sample(1000, random_state=42)
@@ -59,22 +57,25 @@ def main():
     plt.close()
     
     # Find a highly severe event in the sample
-    probs = model.predict(X_sample)
-    high_risk_idx = np.argmax(probs[:, 2]) # index with highest probability of HIGH risk
+    probs = np.asarray(model.predict(X_sample))
+    high_risk_idx = int(np.argmax(probs[:, 2]))  # index with highest probability of HIGH risk
     
     # Local plot for that specific event
-    event_shap = [s[high_risk_idx] for s in shap_values] if isinstance(shap_values, list) else shap_values[high_risk_idx, :, :]
-    
     plt.figure()
+    base_values = (
+        explainer.expected_value[2]
+        if isinstance(explainer.expected_value, (list, np.ndarray))
+        else (explainer.expected_value if explainer.expected_value is not None else 0.0)
+    )
     # If shap_values is a list, class 2 is index 2
     if isinstance(shap_values, list):
         shap.waterfall_plot(shap.Explanation(values=shap_values[2][high_risk_idx], 
-                                          base_values=explainer.expected_value[2], 
+                                          base_values=base_values, 
                                           data=X_sample.iloc[high_risk_idx], 
                                           feature_names=features), show=False)
     else:
         shap.waterfall_plot(shap.Explanation(values=shap_values[high_risk_idx, :, 2], 
-                                          base_values=explainer.expected_value[2], 
+                                          base_values=base_values, 
                                           data=X_sample.iloc[high_risk_idx], 
                                           feature_names=features), show=False)
     

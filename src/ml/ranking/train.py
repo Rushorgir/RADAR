@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 import time
+import json
+from typing import Any
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import classification_report, confusion_matrix, precision_recall_fscore_support
 import shap
-import json
 
 from src.ml.features.extractor import extract_features_from_kelvins, FEATURES
 
@@ -101,7 +102,7 @@ def main():
     
     train_start = time.time()
     
-    callbacks = [lgb.early_stopping(stopping_rounds=20), lgb.log_evaluation(period=50)]
+    callbacks: list[Any] = [lgb.early_stopping(stopping_rounds=20), lgb.log_evaluation(period=50)]
     
     model = lgb.train(
         params,
@@ -116,12 +117,12 @@ def main():
     print(f"\n12. Training time: {train_end - train_start:.2f} seconds")
     
     # Validation Metrics
-    y_val_pred_probs = model.predict(X_val)
+    y_val_pred_probs = np.asarray(model.predict(X_val))
     y_val_pred = np.argmax(y_val_pred_probs, axis=1)
     
     # Test Metrics
     inf_start = time.time()
-    y_test_pred_probs = model.predict(X_test)
+    y_test_pred_probs = np.asarray(model.predict(X_test))
     y_test_pred = np.argmax(y_test_pred_probs, axis=1)
     inf_end = time.time()
     print(f"\n13. Inference time (for {len(X_test)} samples): {inf_end - inf_start:.4f} seconds")

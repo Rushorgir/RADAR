@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-import time
 import json
+from typing import Any
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -119,7 +119,7 @@ def train_lgb(X_train, y_train, X_val, y_val, class_weight, features):
         'verbose': -1
     }
     
-    callbacks = [lgb.early_stopping(stopping_rounds=20, verbose=False)]
+    callbacks: list[Any] = [lgb.early_stopping(stopping_rounds=20, verbose=False)]
     model = lgb.train(params, train_data, num_boost_round=500, valid_sets=[val_data], callbacks=callbacks)
     return model
 
@@ -204,7 +204,7 @@ def run_experiments():
     # A. Current balanced weighting
     print("Training Model A: Balanced Weights")
     m_a = train_lgb(X_train, y_train, X_val, y_val, 'balanced', base_features)
-    preds_a = np.argmax(m_a.predict(X_val[base_features]), axis=1)
+    preds_a = np.argmax(np.asarray(m_a.predict(X_val[base_features])), axis=1)
     results['A_Balanced'] = evaluate_predictions(y_val, preds_a, "Balanced Baseline")
     models['A_Balanced'] = m_a
     
@@ -212,7 +212,7 @@ def run_experiments():
     print("Training Model B: Custom Weights (1, 5, 20)")
     custom_wt = {0: 1.0, 1: 5.0, 2: 20.0}
     m_b = train_lgb(X_train, y_train, X_val, y_val, custom_wt, base_features)
-    preds_b = np.argmax(m_b.predict(X_val[base_features]), axis=1)
+    preds_b = np.argmax(np.asarray(m_b.predict(X_val[base_features])), axis=1)
     results['B_CustomWt'] = evaluate_predictions(y_val, preds_b, "Custom Weights (1,5,20)")
     models['B_CustomWt'] = m_b
     
@@ -220,7 +220,7 @@ def run_experiments():
     print("Training Model C: Stronger HIGH (1, 10, 50)")
     custom_wt2 = {0: 1.0, 1: 10.0, 2: 50.0}
     m_c = train_lgb(X_train, y_train, X_val, y_val, custom_wt2, base_features)
-    preds_c = np.argmax(m_c.predict(X_val[base_features]), axis=1)
+    preds_c = np.argmax(np.asarray(m_c.predict(X_val[base_features])), axis=1)
     results['C_StrongHigh'] = evaluate_predictions(y_val, preds_c, "Strong HIGH (1,10,50)")
     models['C_StrongHigh'] = m_c
     
@@ -233,7 +233,7 @@ def run_experiments():
     # Train model without current_risk
     print("Training Model: No current_risk")
     m_no_risk = train_lgb(X_train, y_train, X_val, y_val, 'balanced', no_risk_features)
-    preds_no_risk = np.argmax(m_no_risk.predict(X_val[no_risk_features]), axis=1)
+    preds_no_risk = np.argmax(np.asarray(m_no_risk.predict(X_val[no_risk_features])), axis=1)
     results['No_Risk'] = evaluate_predictions(y_val, preds_no_risk, "No current_risk (Balanced)")
     models['No_Risk'] = m_no_risk
     
@@ -251,7 +251,7 @@ def run_experiments():
     test_results = {}
     
     # Baseline
-    preds_test_base = np.argmax(m_a.predict(X_test[base_features]), axis=1)
+    preds_test_base = np.argmax(np.asarray(m_a.predict(X_test[base_features])), axis=1)
     test_results['Baseline'] = evaluate_predictions(y_test, preds_test_base, "Baseline (Test)")
     
     # Best Model (All Features + Tuned)
@@ -259,7 +259,7 @@ def run_experiments():
     test_results['Improved'] = evaluate_predictions(y_test, preds_test_best, "Improved Model (Test)")
     
     # No Risk (Test)
-    preds_test_no_risk = np.argmax(m_no_risk.predict(X_test[no_risk_features]), axis=1)
+    preds_test_no_risk = np.argmax(np.asarray(m_no_risk.predict(X_test[no_risk_features])), axis=1)
     test_results['No_Risk'] = evaluate_predictions(y_test, preds_test_no_risk, "No Risk Model (Test)")
     
     # Run SHAP on Best Model

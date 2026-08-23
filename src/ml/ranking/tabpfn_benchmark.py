@@ -33,8 +33,8 @@ def main():
     print("=======================================")
     
     try:
-        import torch
-        from tabpfn import TabPFNClassifier
+        import torch  # type: ignore
+        from tabpfn import TabPFNClassifier  # type: ignore
     except ImportError as e:
         print(f"INFO: Required benchmark library not installed ({e}).")
         print("To run the TabPFN benchmark, install PyTorch and TabPFN: pip install torch tabpfn")
@@ -54,6 +54,7 @@ def main():
     print(f"TABPFN_TOKEN present in os.environ: {has_token}")
         
     print("\nLoading data...")
+    t0 = time.time()
     try:
         df = load_data()
     except Exception as e:
@@ -193,7 +194,7 @@ def main():
     start_lgb_inf = time.time()
     # LightGBM gracefully ignores features it wasn't trained on, but we must pass exactly what it expects
     # In experiments.py, it was trained on all_features (17 features). We will pass X_test[all_features].
-    lgb_probs = lgb_model.predict(X_test[all_features])
+    lgb_probs = np.asarray(lgb_model.predict(X_test[all_features]))
     lgb_preds = []
     
     # We use a threshold, say the Balanced threshold or the Safety First threshold.
