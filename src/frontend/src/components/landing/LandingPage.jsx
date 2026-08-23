@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import CinematicNav from "./CinematicNav";
 import CinematicHero from "./CinematicHero";
+import LandingFooter from "./LandingFooter";
 import heroBg from "../../assets/hero-bg.jpg";
 
 export default function LandingPage() {
@@ -31,6 +32,8 @@ export default function LandingPage() {
         {/* Hero copy — left-aligned */}
         <CinematicHero />
       </section>
+
+      <LandingFooter />
     </div>
   );
 }

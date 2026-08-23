@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "../../context/Router";
 import { useAuth } from "../../context/AuthContext";
 import CinematicNav from "./CinematicNav";
+import LandingFooter from "./LandingFooter";
 import RadarLogo from "../shared/RadarLogo";
 
 export default function TrackingPage() {
@@ -108,6 +109,8 @@ export default function TrackingPage() {
           </div>
         </div>
       </section>
+
+      <LandingFooter />
     </div>
   );
 }

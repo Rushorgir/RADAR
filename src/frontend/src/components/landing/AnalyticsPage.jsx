@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "../../context/Router";
 import { useAuth } from "../../context/AuthContext";
 import CinematicNav from "./CinematicNav";
+import LandingFooter from "./LandingFooter";
 
 export default function AnalyticsPage() {
   const { navigate } = useRouter();
@@ -107,6 +108,8 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </section>
+
+      <LandingFooter />
     </div>
   );
 }
