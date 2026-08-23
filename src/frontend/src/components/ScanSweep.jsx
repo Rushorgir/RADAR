@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-// Plays once, ~1.4s, then unmounts itself. This is the "system is analyzing
-// the orbital environment" beat called out in the project brief.
+// Plays once, ~0.65s, then unmounts itself. Fast, non-intrusive orbital sweep.
 export default function ScanSweep({ onComplete }) {
   const [visible, setVisible] = useState(true);
 
@@ -9,7 +8,7 @@ export default function ScanSweep({ onComplete }) {
     const t = setTimeout(() => {
       setVisible(false);
       onComplete?.();
-    }, 1400);
+    }, 650);
     return () => clearTimeout(t);
   }, [onComplete]);
 
@@ -35,7 +34,7 @@ export default function ScanSweep({ onComplete }) {
           border: "1px solid var(--signal-line)",
           position: "relative",
           overflow: "hidden",
-          animation: "og-pulse 1.4s ease-out forwards",
+          animation: "og-pulse 0.65s ease-out forwards",
         }}
       >
         <div
@@ -44,7 +43,7 @@ export default function ScanSweep({ onComplete }) {
             inset: 0,
             background:
               "conic-gradient(from 0deg, transparent 0deg, var(--signal-dim) 25deg, transparent 55deg)",
-            animation: "og-sweep 1.4s linear",
+            animation: "og-sweep 0.65s linear",
           }}
         />
       </div>
@@ -54,7 +53,7 @@ export default function ScanSweep({ onComplete }) {
           position: "absolute",
           color: "var(--signal)",
           letterSpacing: "0.2em",
-          animation: "og-fade 1.4s ease-in-out",
+          animation: "og-fade 0.65s ease-out forwards",
         }}
       >
         ANALYZING ORBITAL ENVIRONMENT
@@ -62,17 +61,19 @@ export default function ScanSweep({ onComplete }) {
       <style>{`
         @keyframes og-sweep {
           from { transform: rotate(0deg); }
-          to { transform: rotate(1080deg); }
+          to { transform: rotate(720deg); }
         }
         @keyframes og-pulse {
           0% { opacity: 0; transform: scale(0.85); }
           15% { opacity: 1; }
-          85% { opacity: 1; }
-          100% { opacity: 0; transform: scale(1.05); }
+          65% { opacity: 0.8; }
+          100% { opacity: 0; transform: scale(1.08); }
         }
         @keyframes og-fade {
-          0%, 100% { opacity: 0; }
-          20%, 80% { opacity: 1; }
+          0% { opacity: 0; transform: translateY(4px); }
+          15% { opacity: 1; transform: translateY(0); }
+          55% { opacity: 1; }
+          85%, 100% { opacity: 0; transform: translateY(-4px); }
         }
       `}</style>
     </div>

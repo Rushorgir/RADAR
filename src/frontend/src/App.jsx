@@ -123,12 +123,39 @@ export default function App() {
   const selectedObject = objects.find((object) => normalizeId(object.object_id) === normalizeId(selectedObjectId));
   const objectDetail = buildObjectDetail(selectedObject, riskList);
 
-  function handleChangeMode(nextMode) {
-    if (nextMode === "threat" && mode !== "threat") {
+  const [isTabSyncing, setIsTabSyncing] = useState(false);
+  const [tabSyncLabel, setTabSyncLabel] = useState("");
+
+  const handleChangeMode = async (nextMode) => {
+    if (nextMode === mode) return;
+
+    const modeLabels = {
+      overview: "ORBITAL TRACKING & CATALOG",
+      threat: "CONJUNCTION & THREAT MATRIX",
+      reentry: "ATMOSPHERIC RE-ENTRY WATCH",
+      launch: "LAUNCH CORRIDOR PLANNER",
+      solar: "SOLAR SYSTEM ORRERY",
+    };
+
+    setIsTabSyncing(true);
+    setTabSyncLabel(modeLabels[nextMode] || nextMode.toUpperCase());
+
+    // Reset selection and mode-specific overlays
+    setSelectedObjectId(null);
+    setSelectedEventId(null);
+    if (nextMode !== "launch") {
+      setCorridorWaypoints(null);
+    }
+
+    // Await sync transition so visuals reload seamlessly
+    await new Promise((resolve) => setTimeout(resolve, 260));
+
+    if (nextMode === "threat") {
       setShowSweep(true);
     }
     setMode(nextMode);
-  }
+    setIsTabSyncing(false);
+  };
 
   function handleFilterChange(filterKey) {
     setActiveFilters((current) => current.includes(filterKey)
@@ -144,6 +171,43 @@ export default function App() {
 
   return (
     <div className="radar-shell">
+      {isTabSyncing && (
+        <div
+          className="tab-sync-overlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(5, 7, 12, 0.4)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "all",
+          }}
+        >
+          <div
+            className="hud-frame"
+            style={{
+              padding: "1rem 2rem",
+              background: "rgba(13, 19, 31, 0.95)",
+              border: "1px solid var(--neon-blue, #00f0ff)",
+              boxShadow: "0 0 25px rgba(0, 240, 255, 0.25)",
+              borderRadius: "4px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "0.68rem", letterSpacing: "2px", color: "var(--neon-blue, #00f0ff)", marginBottom: "0.25rem", fontFamily: "var(--font-mono, monospace)" }}>
+              RECONFIGURING HUD SUBSYSTEM
+            </div>
+            <div className="mono" style={{ color: "#f8fafc", fontSize: "0.95rem", fontWeight: "bold" }}>
+              // {tabSyncLabel}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isDatasetLoading && (
         <div
           className="dataset-loading-overlay"
@@ -210,7 +274,7 @@ export default function App() {
         />
       ) : (
         <GlobeView
-          key={dataset}
+          key={`${dataset}-${mode}`}
           objects={visibleObjects}
           mode={mode}
           selectedObjectId={selectedObjectId}

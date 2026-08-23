@@ -455,7 +455,7 @@ export default function GlobeView({
     const viewer = viewerRef.current;
     if (!dataSource) return;
     dataSource.entities.removeAll();
-    if (!corridorWaypoints || corridorWaypoints.length === 0) return;
+    if (mode !== "launch" || !corridorWaypoints || corridorWaypoints.length === 0) return;
 
     // Frame the corridor so generating a route actually shows it, rather
     // than leaving the camera wherever it happened to be pointed. Looking
@@ -525,7 +525,7 @@ export default function GlobeView({
         disableDepthTestDistance: 0,
       },
     });
-  }, [corridorWaypoints]);
+  }, [corridorWaypoints, mode]);
 
   // ---- fly to selected object ----
   useEffect(() => {
