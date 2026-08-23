@@ -70,8 +70,8 @@ class ConjunctionPipeline:
             s_vel = arrays.velocities_eci_km_s[idx2, s_ok, :]
             
             # Slice a 5-point window around TCA to make CubicSpline interpolation instant
-            p_c_idx = np.argmin(np.abs(p_times - tca_s))
-            s_c_idx = np.argmin(np.abs(s_times - tca_s))
+            p_c_idx = int(np.argmin(np.abs(p_times - tca_s)))
+            s_c_idx = int(np.argmin(np.abs(s_times - tca_s)))
             p_slice = slice(max(0, p_c_idx - 2), p_c_idx + 3)
             s_slice = slice(max(0, s_c_idx - 2), s_c_idx + 3)
             
@@ -87,7 +87,7 @@ class ConjunctionPipeline:
             v_rel_norm = float(np.linalg.norm(v_rel))
             
             # Find closest timestep to use as base for covariance and metadata
-            step_idx = np.argmin(np.abs(epoch_seconds - tca_s))
+            step_idx = int(np.argmin(np.abs(epoch_seconds - tca_s)))
             
             # Use the escape hatch to build the actual objects for the encounter frame
             p_closest = arrays.to_propagated_state(idx1, step_idx)
@@ -112,21 +112,25 @@ class ConjunctionPipeline:
                 combined_hard_body_radius_km=combined_radius_km
             )
             
-            if miss_distance_km > self.PC_COMPUTE_THRESHOLD_KM:
-                # Log only
+            if miss_distance_km > self.PC_COMPUTE_THRESHOLD_KM or v_rel_norm < 1e-5:
+                # Log only or zero/near-zero relative velocity (e.g. co-orbiting / docked elements)
                 pc_result = PcResult(pc=0.0, method=PcMethod.FOSTER_2D)
             else:
-                # 5. Full Pc computation path
-                # Encounter frame transform
-                rotation = compute_encounter_frame(r_rel, v_rel)
-                b_vector, cov_enc = project_to_encounter_plane(r_rel, cov_pos_combined, rotation)
-                
-                encounter.rotation_matrix = rotation
-                encounter.relative_position_enc = b_vector
-                encounter.combined_covariance_enc = cov_enc
-                
-                # Compute Pc
-                pc_result = self.pc_engine.compute_pc(encounter)
+                try:
+                    # 5. Full Pc computation path
+                    # Encounter frame transform
+                    rotation = compute_encounter_frame(r_rel, v_rel)
+                    b_vector, cov_enc = project_to_encounter_plane(r_rel, cov_pos_combined, rotation)
+                    
+                    encounter.rotation_matrix = rotation
+                    encounter.relative_position_enc = b_vector
+                    encounter.combined_covariance_enc = cov_enc
+                    
+                    # Compute Pc
+                    pc_result = self.pc_engine.compute_pc(encounter)
+                except Exception as exc:
+                    logger.warning(f"Pc calculation skipped for encounter ({p_closest.object_id} vs {s_closest.object_id}): {exc}")
+                    pc_result = PcResult(pc=0.0, method=PcMethod.FOSTER_2D)
                 
             events.append(self._package_event(encounter, pc_result))
             

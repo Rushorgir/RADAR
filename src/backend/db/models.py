@@ -16,6 +16,7 @@ class ConjunctionEventModel(Base):
     __tablename__ = "conjunction_events"
 
     # Core Event Data
+    dataset_name = Column(String, index=True, nullable=False, default="default")
     event_id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     primary_id = Column(String, index=True, nullable=False)
     secondary_id = Column(String, index=True, nullable=False)
@@ -61,6 +62,7 @@ class TLEModel(Base):
     __tablename__ = "tle_data"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_name = Column(String, index=True, nullable=False, default="default")
     object_id = Column(String, index=True, nullable=False)
     object_name = Column(String, nullable=True)
     object_type = Column(String, nullable=True)

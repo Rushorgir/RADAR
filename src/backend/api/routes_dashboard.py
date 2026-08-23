@@ -10,15 +10,15 @@ from src.backend.schemas.api_schemas import DashboardSummaryResponse
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
-async def get_dashboard_summary(db: Session = Depends(get_db)):
+async def get_dashboard_summary(dataset: str = "default", db: Session = Depends(get_db)):
     """Aggregated summary endpoints (KPIs, active alert counts, risk distributions)."""
     
-    total_tracked = crud.get_tle_catalog_count(db)
-    total_events = crud.get_conjunction_events_count(db)
-    risk_dist = crud.get_risk_distribution(db)
+    total_tracked = crud.get_tle_catalog_count(db, dataset_name=dataset)
+    total_events = crud.get_conjunction_events_count(db, dataset_name=dataset)
+    risk_dist = crud.get_risk_distribution(db, dataset_name=dataset)
     active_alerts = risk_dist.get("HIGH", 0)
     
-    recent_high_risk = crud.get_recent_high_risk_events(db, hours=24)
+    recent_high_risk = crud.get_recent_high_risk_events(db, hours=24, dataset_name=dataset)
     
     return {
         "total_tracked_objects": total_tracked,

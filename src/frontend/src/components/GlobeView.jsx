@@ -382,11 +382,15 @@ export default function GlobeView({
 
     objects.forEach((obj) => {
       const objectId = String(obj.object_id);
-      const orbit = createOrbitalModel(obj, referenceTime);
-      orbitModels.set(objectId, orbit);
+      orbitModels.set(objectId, createOrbitalModel(obj, referenceTime));
+    });
+    orbitModelsRef.current = orbitModels;
+
+    objects.forEach((obj) => {
+      const objectId = String(obj.object_id);
 
       const position = new Cesium.CallbackProperty(
-        (time) => evaluateOrbitPosition(orbitModelsRef.current.get(objectId), time),
+        (time) => evaluateOrbitPosition(orbitModels.get(objectId), time),
         false,
       );
 
@@ -439,7 +443,10 @@ export default function GlobeView({
         selectionRing.radarObject = obj;
       }
     });
-    orbitModelsRef.current = orbitModels;
+
+    try {
+      viewer.scene.requestRender();
+    } catch (e) {}
   }, [objects, mode, selectedObjectId, simulationClock]);
 
   // ---- draw the launch corridor overlay (Launch Planner mode) ----

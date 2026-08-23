@@ -12,6 +12,7 @@ from loguru import logger
 
 from src.backend.api.routes_conjunction import router as conjunction_router
 from src.backend.api.routes_dashboard import router as dashboard_router
+from src.backend.api.routes_dataset import router as dataset_router
 from src.backend.api.routes_ingest import router as ingest_router
 from src.backend.api.routes_launch import router as launch_router
 from src.backend.api.routes_maneuver import router as maneuver_router
@@ -78,6 +79,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(dataset_router)
 app.include_router(tle_router)
 app.include_router(conjunction_router)
 app.include_router(risk_router)

@@ -20,9 +20,9 @@ class RiskScoreResponse(BaseModel):
 
 
 @router.get("/{event_id}", response_model=RiskScoreResponse)
-async def get_risk_score(event_id: str, db: Session = Depends(get_db)):
+async def get_risk_score(event_id: str, dataset: str = "default", db: Session = Depends(get_db)):
     """Return ML-ranked risk scores and SHAP explainability payloads for an event."""
-    event = crud.get_conjunction_event_by_id(db, event_id)
+    event = crud.get_conjunction_event_by_id(db, event_id, dataset_name=dataset)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 

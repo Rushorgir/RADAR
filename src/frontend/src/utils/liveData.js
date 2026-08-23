@@ -139,16 +139,16 @@ export function buildDashboardStats(summary, tles) {
  * into mockData.js's exact shapes. Throws if the backend is unreachable --
  * callers should catch this and fall back to mock data (see App.jsx).
  */
-export async function loadLiveDashboardData() {
+export async function loadLiveDashboardData(dataset) {
   const [summary, tleResponse, conjunctionResponse, positionsResponse] = await Promise.all([
-    fetchDashboardSummary(),
-    fetchTLEs(),
-    fetchConjunctions(),
+    fetchDashboardSummary(dataset),
+    fetchTLEs(dataset),
+    fetchConjunctions(dataset),
     // Best-effort, on its own catch: a positions-endpoint hiccup should
     // degrade to placeholder positions for the globe, not take down the
     // whole live dashboard (which is what a shared Promise.all rejection
     // would do).
-    fetchCurrentPositions().catch((err) => {
+    fetchCurrentPositions(undefined, dataset).catch((err) => {
       console.warn("[RADAR] Live positions unavailable, using placeholder positions:", err.message);
       return { positions: [] };
     }),

@@ -9,8 +9,8 @@ from src.shared.constants.physical import PC
 
 # --- Conjunction Event CRUD ---
 
-def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_category: str | None = None, sort_by: str = "tca"):
-    query = db.query(ConjunctionEventModel)
+def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_category: str | None = None, sort_by: str = "tca", dataset_name: str = "default"):
+    query = db.query(ConjunctionEventModel).filter(ConjunctionEventModel.dataset_name == dataset_name)
     
     if risk_category:
         query = query.filter(ConjunctionEventModel.risk_category == risk_category)
@@ -24,14 +24,14 @@ def get_conjunction_events(db: Session, skip: int = 0, limit: int = 100, risk_ca
         
     return query.offset(skip).limit(limit).all()
 
-def get_conjunction_events_count(db: Session, risk_category: str | None = None) -> int:
-    query = db.query(func.count(ConjunctionEventModel.event_id))
+def get_conjunction_events_count(db: Session, risk_category: str | None = None, dataset_name: str = "default") -> int:
+    query = db.query(func.count(ConjunctionEventModel.event_id)).filter(ConjunctionEventModel.dataset_name == dataset_name)
     if risk_category:
         query = query.filter(ConjunctionEventModel.risk_category == risk_category)
     return query.scalar() or 0
 
-def get_conjunction_event_by_id(db: Session, event_id: str) -> ConjunctionEventModel | None:
-    return db.query(ConjunctionEventModel).filter(ConjunctionEventModel.event_id == event_id).first()
+def get_conjunction_event_by_id(db: Session, event_id: str, dataset_name: str = "default") -> ConjunctionEventModel | None:
+    return db.query(ConjunctionEventModel).filter(ConjunctionEventModel.dataset_name == dataset_name, ConjunctionEventModel.event_id == event_id).first()
 
 def create_conjunction_event(db: Session, event_data: dict) -> ConjunctionEventModel:
     db_event = ConjunctionEventModel(**event_data)
@@ -41,8 +41,8 @@ def create_conjunction_event(db: Session, event_data: dict) -> ConjunctionEventM
     return db_event
 
 
-def update_conjunction_event(db: Session, event_id: str, update_data: dict) -> ConjunctionEventModel | None:
-    db_event = get_conjunction_event_by_id(db, event_id)
+def update_conjunction_event(db: Session, event_id: str, update_data: dict, dataset_name: str = "default") -> ConjunctionEventModel | None:
+    db_event = get_conjunction_event_by_id(db, event_id, dataset_name=dataset_name)
     if not db_event:
         return None
         
@@ -56,49 +56,55 @@ def update_conjunction_event(db: Session, event_id: str, update_data: dict) -> C
 
 # --- TLE Data CRUD ---
 
-def _latest_tle_query(db: Session):
+def _latest_tle_query(db: Session, dataset_name: str = "default"):
     """
     One row per tracked object -- its most recent TLE.
-
-    TLEModel deliberately keeps every historical TLE for an object (see the
-    model docstring), so a plain `SELECT * FROM tle_data` would list the same
-    physical satellite/debris piece once per re-ingestion of the catalog
-    instead of once per object, inflating "how many objects are we
-    tracking" counts (and duplicating its dot on the globe) every time the
-    ingestion pipeline is re-run. Join back to a per-object MAX(epoch)
-    subquery to keep only the latest snapshot of each.
+    Joining on max(id) per object_id ensures exactly 1 row per unique object_id.
     """
-    latest_epoch = (
-        db.query(TLEModel.object_id, func.max(TLEModel.epoch).label("max_epoch"))
+    latest_id = (
+        db.query(func.max(TLEModel.id).label("max_id"))
+        .filter(TLEModel.dataset_name == dataset_name)
         .group_by(TLEModel.object_id)
         .subquery()
     )
     return db.query(TLEModel).join(
-        latest_epoch,
-        (TLEModel.object_id == latest_epoch.c.object_id)
-        & (TLEModel.epoch == latest_epoch.c.max_epoch),
-    )
+        latest_id,
+        TLEModel.id == latest_id.c.max_id,
+    ).filter(TLEModel.dataset_name == dataset_name)
 
-def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100):
-    return _latest_tle_query(db).order_by(TLEModel.object_id).offset(skip).limit(limit).all()
+def get_tle_catalog(db: Session, skip: int = 0, limit: int = 100, dataset_name: str = "default"):
+    return _latest_tle_query(db, dataset_name=dataset_name).order_by(TLEModel.object_id).offset(skip).limit(limit).all()
 
-def get_tle_catalog_count(db: Session) -> int:
-    return db.query(func.count(func.distinct(TLEModel.object_id))).scalar() or 0
+def get_tle_catalog_count(db: Session, dataset_name: str = "default") -> int:
+    return db.query(func.count(func.distinct(TLEModel.object_id))).filter(TLEModel.dataset_name == dataset_name).scalar() or 0
 
-def get_all_latest_tles(db: Session):
+def get_all_latest_tles(db: Session, dataset_name: str = "default"):
     """
     Every tracked object's latest TLE, unpaginated -- for batch operations
     that need the whole catalog at once (e.g. propagating current positions
-    for the globe), as opposed to get_tle_catalog's paginated listing for
-    the TLE browsing API.
+    for the globe).
     """
-    return _latest_tle_query(db).all()
+    return _latest_tle_query(db, dataset_name=dataset_name).all()
 
-def get_tle_by_object_id(db: Session, object_id: str) -> TLEModel | None:
+def get_tle_by_object_id(db: Session, object_id: str, dataset_name: str = "default") -> TLEModel | None:
     # Returns the most recent TLE for the object
-    return db.query(TLEModel).filter(TLEModel.object_id == object_id).order_by(desc(TLEModel.epoch)).first()
+    return db.query(TLEModel).filter(TLEModel.dataset_name == dataset_name, TLEModel.object_id == object_id).order_by(desc(TLEModel.id)).first()
 
 def create_tle(db: Session, tle_data: dict) -> TLEModel:
+    ds = tle_data.get("dataset_name", "default")
+    obj_id = str(tle_data["object_id"])
+    existing = db.query(TLEModel).filter(
+        TLEModel.dataset_name == ds,
+        TLEModel.object_id == obj_id,
+        TLEModel.epoch == tle_data["epoch"]
+    ).first()
+    if existing:
+        for key, value in tle_data.items():
+            setattr(existing, key, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
     db_tle = TLEModel(**tle_data)
     db.add(db_tle)
     db.commit()
@@ -126,9 +132,9 @@ def _effective_risk_category():
         else_="LOW",
     )
 
-def get_risk_distribution(db: Session) -> dict[str, int]:
+def get_risk_distribution(db: Session, dataset_name: str = "default") -> dict[str, int]:
     category = _effective_risk_category()
-    result = db.query(category, func.count(ConjunctionEventModel.event_id)).group_by(category).all()
+    result = db.query(category, func.count(ConjunctionEventModel.event_id)).filter(ConjunctionEventModel.dataset_name == dataset_name).group_by(category).all()
 
     # Initialize with default counts
     dist = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
@@ -140,9 +146,10 @@ def get_risk_distribution(db: Session) -> dict[str, int]:
 
 
 
-def get_recent_high_risk_events(db: Session, hours: int = 24):
+def get_recent_high_risk_events(db: Session, hours: int = 24, dataset_name: str = "default"):
     threshold_time = datetime.now(timezone.utc) - timedelta(hours=hours)
     return db.query(ConjunctionEventModel).filter(
+        ConjunctionEventModel.dataset_name == dataset_name,
         _effective_risk_category() == "HIGH",
         ConjunctionEventModel.created_at >= threshold_time
     ).order_by(desc(ConjunctionEventModel.created_at)).limit(10).all()

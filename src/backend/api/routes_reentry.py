@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/reentry", tags=["Re-entry"])
 
 
 @router.get("/watch", response_model=ReentryWatchResponse)
-async def get_reentry_watch(db: Session = Depends(get_db)):
+async def get_reentry_watch(dataset: str = Query("default", description="Dataset namespace"), db: Session = Depends(get_db)):
     """
     Re-entry / orbital decay risk for the currently tracked catalog
     (src/propagation/reentry.py), computed live from each object's latest
@@ -25,12 +25,12 @@ async def get_reentry_watch(db: Session = Depends(get_db)):
     module's docstring for how risk tiers and the decay-time estimate are
     derived, and what they honestly can't tell you.
     """
-    tle_rows = crud.get_all_latest_tles(db)
+    tle_rows = crud.get_all_latest_tles(db, dataset_name=dataset)
 
     parsed_tles = []
     for row in tle_rows:
         try:
-            parsed_tles.append(parse_tle_lines(row.line1, row.line2, name=row.object_name or ""))
+            parsed_tles.append(parse_tle_lines(str(row.line1), str(row.line2), name=str(row.object_name or "")))
         except TLEParseError as exc:
             logger.warning(f"Skipping object {row.object_id} in re-entry watch, stored TLE failed to parse: {exc}")
 

@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import logoUrl from "../assets/radar-logo.svg";
+import DatasetManager from "./DatasetManager";
 
 const MODES = [
   { id: "dashboard", label: "Overview" },
@@ -138,6 +139,7 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
           );
         })}
       </nav>
+      <DatasetManager />
       </aside>
     </>
   );

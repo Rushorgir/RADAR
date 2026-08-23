@@ -43,7 +43,7 @@ class ConjunctionEventResponse(BaseModel):
     combined_hard_body_radius_km: float
     primary_object_type: str
     secondary_object_type: str
-    validity_flags: dict[str, bool] | None = None
+    validity_flags: dict[str, Any] | None = None
     
     # Enriched fields from ML
     ml_risk_score: float | None = None
@@ -127,7 +127,7 @@ class LaunchSafetyRequest(BaseModel):
     launch_site: str | None = Field(None, description="A name from GET /api/launch/sites; overridden by explicit lat/lon if both are given")
     launch_lat_deg: float | None = Field(None, ge=-90, le=90)
     launch_lon_deg: float | None = Field(None, ge=-180, le=180)
-    target_altitude_km: float = Field(..., gt=0, le=2000)
+    target_altitude_km: float = Field(gt=0, le=2000)
     launch_time: datetime | None = Field(None, description="Defaults to now")
 
 
@@ -179,7 +179,7 @@ class ConjunctionEventCreate(BaseModel):
     combined_hard_body_radius_km: float
     primary_object_type: ObjectType
     secondary_object_type: ObjectType
-    validity_flags: dict[str, bool] | None = None
+    validity_flags: dict[str, Any] | None = None
 
 
 class RiskScoreUpdate(BaseModel):

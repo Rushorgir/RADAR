@@ -19,11 +19,12 @@ router = APIRouter(prefix="/api/tle", tags=["TLE"])
 async def get_tle_catalog(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    dataset: str = Query("default", description="Dataset namespace"),
     db: Session = Depends(get_db)
 ):
     """Fetch paginated tracked satellites and active debris catalog."""
-    tles = crud.get_tle_catalog(db, skip=skip, limit=limit)
-    total = crud.get_tle_catalog_count(db)
+    tles = crud.get_tle_catalog(db, skip=skip, limit=limit, dataset_name=dataset)
+    total = crud.get_tle_catalog_count(db, dataset_name=dataset)
 
     return {
         "items": tles,
@@ -44,6 +45,7 @@ async def get_current_positions(
         "control) request real SGP4-propagated positions at any point along "
         "it, not just the actual current instant.",
     ),
+    dataset: str = Query("default", description="Dataset namespace"),
     db: Session = Depends(get_db),
 ):
     """
@@ -52,12 +54,12 @@ async def get_current_positions(
     TLE. Not cached or stored -- a position is only valid for the instant
     it was computed for, so there's nothing worth persisting here.
     """
-    tle_rows = crud.get_all_latest_tles(db)
+    tle_rows = crud.get_all_latest_tles(db, dataset_name=dataset)
 
     parsed_tles = []
     for row in tle_rows:
         try:
-            parsed_tles.append(parse_tle_lines(row.line1, row.line2, name=row.object_name or ""))
+            parsed_tles.append(parse_tle_lines(str(row.line1), str(row.line2), name=str(row.object_name or "")))
         except TLEParseError as exc:
             logger.warning(f"Skipping object {row.object_id}, stored TLE failed to parse: {exc}")
 
@@ -84,9 +86,9 @@ async def get_current_positions(
     }
 
 @router.get("/{object_id}", response_model=TLEDataResponse)
-async def get_tle_for_object(object_id: str, db: Session = Depends(get_db)):
+async def get_tle_for_object(object_id: str, dataset: str = Query("default", description="Dataset namespace"), db: Session = Depends(get_db)):
     """Fetch the most recent TLE for a specific object."""
-    tle = crud.get_tle_by_object_id(db, object_id)
+    tle = crud.get_tle_by_object_id(db, object_id, dataset_name=dataset)
     if not tle:
         raise HTTPException(status_code=404, detail=f"TLE for object {object_id} not found")
     return tle

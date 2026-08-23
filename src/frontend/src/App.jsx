@@ -15,6 +15,7 @@ import TimeControls from "./components/TimeControls";
 import { mockObjects, mockRiskList, mockDashboardStats } from "./data/mockData";
 import { buildObjectDetail, normalizeId } from "./utils/objectDetails";
 import { loadLiveDashboardData } from "./utils/liveData";
+import { useDataset } from "./context/DatasetContext";
 
 const simulationClock = createSimulationClock();
 
@@ -32,6 +33,7 @@ function createSimulationClock() {
 }
 
 export default function App() {
+  const { dataset } = useDataset();
   const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch | solar
   const [showSweep, setShowSweep] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
@@ -41,17 +43,11 @@ export default function App() {
   const [activeFilters, setActiveFilters] = useState([]);
   const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
 
+  const [isDatasetLoading, setIsDatasetLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState("");
+
   useEffect(() => {
-    // onTick fires on every render frame (~60/sec) while the globe's Cesium
-    // Viewer is running -- setCurrentTime unconditionally on every tick was
-    // forcing a full re-render of the entire dashboard tree (TopBar,
-    // StatCluster, RiskPanel, GlobeView, ...) 60 times a second, which is
-    // exactly the kind of thing that reads as "laggy," and gets worse the
-    // faster the simulated clock runs (more visually-distinct seconds
-    // passing, same 60 renders/sec either way). TimeControls only ever
-    // displays whole seconds, so only re-render when the displayed second
-    // actually changes, and debounce by real wall-clock time so that at
-    // fast multipliers (e.g. 3600x) we don't trigger 60 React updates per second.
     let lastRealTime = performance.now();
     let lastDisplayedSecond = Math.floor(Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000);
     const syncTime = (clock) => {
@@ -70,32 +66,48 @@ export default function App() {
     return () => simulationClock.onTick.removeEventListener(syncTime);
   }, []);
 
-  // Start with mock data so the UI renders immediately; swap in real data
-  // from the backend if/when it loads. If the backend isn't running (e.g.
-  // a frontend-only demo), this fails silently and mock data stays put --
-  // see src/frontend/src/utils/liveData.js for exactly what's real vs.
-  // still a placeholder (AI-3's ML risk/SHAP/maneuver output doesn't exist
-  // yet, so those fields stay empty even once live data loads).
   const [objects, setObjects] = useState(mockObjects);
   const [riskList, setRiskList] = useState(mockRiskList);
   const [dashboardStats, setDashboardStats] = useState(mockDashboardStats);
 
+  const reloadVisuals = async (targetDataset) => {
+    const ds = targetDataset || dataset;
+    setSelectedObjectId(null);
+    setSelectedEventId(null);
+    setIsDatasetLoading(true);
+    setLoadingProgress(25);
+    setLoadingStep(`Connecting to [${ds.toUpperCase()}] database...`);
+
+    try {
+      setLoadingProgress(50);
+      setLoadingStep(`Propagating orbital ephemerides for [${ds.toUpperCase()}]...`);
+
+      const [live] = await Promise.all([
+        loadLiveDashboardData(ds),
+        new Promise((resolve) => setTimeout(resolve, 400)),
+      ]);
+
+      setLoadingProgress(85);
+      setLoadingStep("Projecting 3D orbital objects to visual Earth...");
+
+      setObjects(live.objects);
+      setRiskList(live.riskList);
+      setDashboardStats(live.dashboardStats);
+      setLoadingProgress(100);
+      setLoadingStep("Dataset synchronized!");
+
+      setTimeout(() => {
+        setIsDatasetLoading(false);
+      }, 200);
+    } catch (err) {
+      console.warn("[RADAR] Backend load failed:", err);
+      setIsDatasetLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    loadLiveDashboardData()
-      .then((live) => {
-        if (cancelled) return;
-        setObjects(live.objects);
-        setRiskList(live.riskList);
-        setDashboardStats(live.dashboardStats);
-      })
-      .catch((err) => {
-        console.warn("[RADAR] Backend unreachable, using mock data:", err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    reloadVisuals(dataset);
+  }, [dataset]);
 
   const visibleObjects = activeFilters.length === 0 ? objects : objects.filter((object) => {
     const isSatellite = object.type === "satellite";
@@ -132,6 +144,64 @@ export default function App() {
 
   return (
     <div className="radar-shell">
+      {isDatasetLoading && (
+        <div
+          className="dataset-loading-overlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            background: "rgba(5, 7, 12, 0.88)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            pointerEvents: "all",
+          }}
+        >
+          <div
+            className="hud-frame"
+            style={{
+              padding: "2.5rem 3rem",
+              background: "rgba(13, 19, 31, 0.95)",
+              border: "1px solid var(--neon-blue, #00f0ff)",
+              boxShadow: "0 0 35px rgba(0, 240, 255, 0.25)",
+              borderRadius: "8px",
+              minWidth: "460px",
+              maxWidth: "90vw",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "0.75rem", letterSpacing: "2px", color: "var(--neon-blue, #00f0ff)", marginBottom: "0.5rem", fontFamily: "var(--font-mono, monospace)" }}>
+              SYSTEM STATUS // DATASET CONTEXT SWITCH
+            </div>
+            <h2 className="mono" style={{ margin: "0 0 1.2rem 0", color: "#f8fafc", fontSize: "1.4rem" }}>
+              LOADING [{dataset.toUpperCase()}]
+            </h2>
+            <p className="mono" style={{ color: "var(--text-dim, #94a3b8)", fontSize: "0.85rem", marginBottom: "1.5rem", minHeight: "1.2rem" }}>
+              {loadingStep}
+            </p>
+            <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "0.8rem" }}>
+              <div
+                style={{
+                  width: `${loadingProgress}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #00f0ff, #38bdf8)",
+                  boxShadow: "0 0 10px #00f0ff",
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-dim, #64748b)", fontFamily: "var(--font-mono, monospace)" }}>
+              <span>SYNCING TELEMETRY</span>
+              <span>{loadingProgress}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isSolar ? (
         <SolarSystemView
           selectedBodyId={selectedBodyId}
@@ -140,6 +210,7 @@ export default function App() {
         />
       ) : (
         <GlobeView
+          key={dataset}
           objects={visibleObjects}
           mode={mode}
           selectedObjectId={selectedObjectId}
