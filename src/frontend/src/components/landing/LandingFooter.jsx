@@ -53,14 +53,14 @@ export default function LandingFooter() {
 
         <div className="footer-links-col mono">
           <span className="eyebrow">SYSTEM</span>
-          <button type="button" onClick={() => scrollToSection("overview")} className="footer-link">
-            Overview
+          <button type="button" onClick={() => navigate("/tracking")} className="footer-link">
+            Tracking
           </button>
-          <button type="button" onClick={() => scrollToSection("capabilities")} className="footer-link">
-            Capabilities
+          <button type="button" onClick={() => navigate("/analytics")} className="footer-link">
+            Analytics
           </button>
-          <button type="button" onClick={() => scrollToSection("tracking")} className="footer-link">
-            Tracking Environment
+          <button type="button" onClick={() => navigate("/about")} className="footer-link">
+            About
           </button>
         </div>
 

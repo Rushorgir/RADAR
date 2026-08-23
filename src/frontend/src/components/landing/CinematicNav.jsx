@@ -3,22 +3,18 @@ import { useAuth } from "../../context/AuthContext";
 import RadarLogo from "../shared/RadarLogo";
 
 const NAV_ITEMS = [
-  { label: "DASHBOARD", route: "/dashboard" },
-  { label: "TRACKING",  route: "/dashboard" },   // routes to dashboard in threat mode
-  { label: "ANALYTICS", route: "/dashboard" },
-  { label: "ABOUT",     route: null, sectionId: "about" },
+  { label: "TRACKING",  route: "/tracking" },
+  { label: "ANALYTICS", route: "/analytics" },
+  { label: "ABOUT",     route: "/about" },
 ];
 
 export default function CinematicNav() {
-  const { navigate } = useRouter();
+  const { navigate, currentPath } = useRouter();
   const { isAuthenticated } = useAuth();
 
   const handleNav = (item) => {
     if (item.route) {
       navigate(item.route);
-    } else if (item.sectionId) {
-      const el = document.getElementById(item.sectionId);
-      if (el) el.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -36,7 +32,7 @@ export default function CinematicNav() {
         onKeyDown={(e) => e.key === "Enter" && navigate("/")}
         aria-label="RADAR home"
       >
-        <RadarLogo height={38} className="cine-logo-img" />
+        <RadarLogo height={52} className="cine-logo-img" />
       </div>
 
       {/* Right: nav links + auth action */}
@@ -45,7 +41,7 @@ export default function CinematicNav() {
           <button
             key={item.label}
             type="button"
-            className="cine-nav-link"
+            className={`cine-nav-link${currentPath === item.route ? " cine-nav-link--active" : ""}`}
             onClick={() => handleNav(item)}
           >
             {item.label}

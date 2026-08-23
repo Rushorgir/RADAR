@@ -24,12 +24,14 @@ export default function CinematicHero() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // GET STARTED → sign-up for new users, dashboard for authenticated
   const handleGetStarted = () => {
-    navigate(isAuthenticated ? "/dashboard" : "/sign-in");
+    navigate(isAuthenticated ? "/dashboard" : "/sign-up");
   };
 
+  // EXPLORE PLATFORM → tracking page (no auth required, informational)
   const handleExplore = () => {
-    navigate("/dashboard");
+    navigate("/tracking");
   };
 
   return (
@@ -60,7 +62,7 @@ export default function CinematicHero() {
           onClick={handleGetStarted}
           id="cta-get-started"
         >
-          GET STARTED
+          {isAuthenticated ? "OPEN CONSOLE" : "GET STARTED"}
         </button>
 
         <button

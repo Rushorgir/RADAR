@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RouterProvider, useRouter } from "./context/Router";
 import LandingPage from "./components/landing/LandingPage";
+import TrackingPage from "./components/landing/TrackingPage";
+import AnalyticsPage from "./components/landing/AnalyticsPage";
+import AboutPage from "./components/landing/AboutPage";
 import AuthLayout from "./components/auth/AuthLayout";
 import SignInForm from "./components/auth/SignInForm";
 import SignUpForm from "./components/auth/SignUpForm";
@@ -92,6 +95,19 @@ function AppContent() {
       );
     }
     return <RadarDashboard />;
+  }
+
+  // Standalone info pages
+  if (currentPath === "/tracking") {
+    return <TrackingPage />;
+  }
+
+  if (currentPath === "/analytics") {
+    return <AnalyticsPage />;
+  }
+
+  if (currentPath === "/about") {
+    return <AboutPage />;
   }
 
   // Default: Landing Page (/)
