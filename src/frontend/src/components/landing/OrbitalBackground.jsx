@@ -36,17 +36,44 @@ export default function OrbitalBackground() {
     }
     const rand = seededRand(42);
 
-    // --- Stars ---
-    const STAR_COUNT = 60;
-    const stars = Array.from({ length: STAR_COUNT }, (_, i) => ({
-      x: rand() * 1920,   // relative to 1920 width, scaled on draw
-      y: rand() * 1080,
-      r: rand() < 0.3 ? 1.0 : rand() < 0.6 ? 0.7 : 0.4,
-      opacity: 0.1 + rand() * 0.35,
-      twinkle: rand() < 0.15,  // only ~15% twinkle
-      twinkleOffset: rand() * Math.PI * 2,
-      twinkleSpeed: 0.3 + rand() * 0.5,
-    }));
+    // --- Stars (three tiers for natural depth) ---
+    // Tier 1: distant dust — tiny, very dim, static
+    const DUST_COUNT = 100;
+    // Tier 2: mid-field — small, moderate opacity, rare twinkle
+    const MID_COUNT = 60;
+    // Tier 3: foreground — slightly larger, brighter, occasional twinkle
+    const NEAR_COUNT = 20;
+    const STAR_COUNT = DUST_COUNT + MID_COUNT + NEAR_COUNT;
+
+    const stars = [
+      ...Array.from({ length: DUST_COUNT }, () => ({
+        x: rand() * 1920,
+        y: rand() * 1080,
+        r: 0.3 + rand() * 0.3,
+        opacity: 0.06 + rand() * 0.12,
+        twinkle: false,
+        twinkleOffset: 0,
+        twinkleSpeed: 0,
+      })),
+      ...Array.from({ length: MID_COUNT }, () => ({
+        x: rand() * 1920,
+        y: rand() * 1080,
+        r: 0.5 + rand() * 0.5,
+        opacity: 0.14 + rand() * 0.20,
+        twinkle: rand() < 0.12,
+        twinkleOffset: rand() * Math.PI * 2,
+        twinkleSpeed: 0.25 + rand() * 0.45,
+      })),
+      ...Array.from({ length: NEAR_COUNT }, () => ({
+        x: rand() * 1920,
+        y: rand() * 1080,
+        r: 0.9 + rand() * 0.6,
+        opacity: 0.28 + rand() * 0.25,
+        twinkle: rand() < 0.25,
+        twinkleOffset: rand() * Math.PI * 2,
+        twinkleSpeed: 0.2 + rand() * 0.4,
+      })),
+    ];
 
     // --- Orbital paths: 3 ellipses, biased toward right/upper-right ---
     const orbits = [
