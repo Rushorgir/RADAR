@@ -1,5 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import logoUrl from "../assets/radar-logo.svg";
+import { useAuth } from "../context/AuthContext";
+import { useRouter } from "../context/Router";
 
 const MODES = [
   { id: "dashboard", label: "Overview" },
@@ -8,7 +10,11 @@ const MODES = [
   { id: "solar", label: "Solar System" },
 ];
 
-export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects, onSelectObject, timeControls }) {
+export default function TopBar({ mode, onChangeMode, _overallRiskStatus, objects, onSelectObject, timeControls }) {
+  const { operator, logout } = useAuth();
+
+  const { navigate } = useRouter();
+
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const searchWrapRef = useRef(null);
@@ -83,61 +89,98 @@ export default function TopBar({ mode, onChangeMode, overallRiskStatus, objects,
     }
   }
 
+  const handleSignOut = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
     <>
       <header className="top-header hud-frame">
-        <img className="radar-logo" src={logoUrl} alt="RADAR — Risk Assessment and Debris Avoidance Routing" />
-        {timeControls}
-        <div className="search-wrap" ref={searchWrapRef}>
-          <label className="eyebrow search-label" htmlFor="object-search">Search objects</label>
-          <input
-            id="object-search"
-            className="object-search mono"
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setIsFocused(true);
-            }}
-            onFocus={() => setIsFocused(true)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search by object name..."
-            autoComplete="off"
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img
+            className="radar-logo"
+            src={logoUrl}
+            alt="RADAR — Risk Assessment and Debris Avoidance Routing"
+            onClick={() => navigate("/")}
+            style={{ cursor: "pointer" }}
+            title="RADAR Overview // Click to return to landing"
           />
-          {isFocused && matches.length > 0 && (
-            <div className="search-results" role="listbox" aria-label="Matching orbital objects">
-              {matches.map((object, idx) => (
-                <button
-                  className={`search-result ${idx === selectedIndex ? "active" : ""}`}
-                  type="button"
-                  key={object.object_id}
-                  onClick={() => selectResult(object)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                >
-                  <span><strong>{object.name}</strong><small className="mono">ID // {object.object_id}</small></span>
-                  <span className="search-risk">{object.risk_tier}</span>
-                </button>
-              ))}
+        </div>
+
+        {timeControls}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="search-wrap" ref={searchWrapRef}>
+            <label className="eyebrow search-label" htmlFor="object-search">Search objects</label>
+            <input
+              id="object-search"
+              className="object-search mono"
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setIsFocused(true);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onKeyDown={handleKeyDown}
+              placeholder="Search by object name..."
+              autoComplete="off"
+            />
+            {isFocused && matches.length > 0 && (
+              <div className="search-results" role="listbox" aria-label="Matching orbital objects">
+                {matches.map((object, idx) => (
+                  <button
+                    className={`search-result ${idx === selectedIndex ? "active" : ""}`}
+                    type="button"
+                    key={object.object_id}
+                    onClick={() => selectResult(object)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                  >
+                    <span><strong>{object.name}</strong><small className="mono">ID // {object.object_id}</small></span>
+                    <span className="search-risk">{object.risk_tier}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Operator status & Logout */}
+          <div className="topbar-operator-cluster mono">
+            <div className="topbar-operator-info">
+              <span className="eyebrow" style={{ fontSize: 8 }}>OPERATOR</span>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--signal)", whiteSpace: "nowrap" }}>
+                {operator?.callsign || "OP // AUTHORIZED"}
+              </div>
             </div>
-          )}
+            <button
+              type="button"
+              className="topbar-exit-btn mono"
+              onClick={handleSignOut}
+              title="Sign out and return to landing"
+            >
+              [ EXIT ]
+            </button>
+          </div>
         </div>
       </header>
+
       <aside className="navigation-rail hud-frame">
-      <span className="eyebrow nav-heading">Navigation</span>
-      <nav className="mode-nav" aria-label="Primary navigation">
-        {MODES.map((m) => {
-          const active = mode === m.id;
-          return (
-            <button
-              key={m.id}
-              onClick={() => onChangeMode(m.id)}
-              className={active ? "mode-button active" : "mode-button"}
-            >
-              {m.label}
-            </button>
-          );
-        })}
-      </nav>
+        <span className="eyebrow nav-heading">Navigation</span>
+        <nav className="mode-nav" aria-label="Primary navigation">
+          {MODES.map((m) => {
+            const active = mode === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onChangeMode(m.id)}
+                className={active ? "mode-button active" : "mode-button"}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </nav>
       </aside>
     </>
   );

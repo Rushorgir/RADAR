@@ -1,237 +1,113 @@
 import { useEffect, useState } from "react";
-import * as Cesium from "cesium";
-import GlobeView from "./components/GlobeView";
-import SolarSystemView from "./components/SolarSystemView";
-import TopBar from "./components/TopBar";
-import StatCluster from "./components/StatCluster";
-import RiskPanel from "./components/RiskPanel";
-import LaunchPlanner from "./components/LaunchPlanner";
-import ReentryWatchPanel from "./components/ReentryWatchPanel";
-import ScanSweep from "./components/ScanSweep";
-import ObjectDetailPanel from "./components/ObjectDetailPanel";
-import PlanetDetailPanel from "./components/PlanetDetailPanel";
-import RiskLegend from "./components/RiskLegend";
-import TimeControls from "./components/TimeControls";
-import { mockObjects, mockRiskList, mockDashboardStats } from "./data/mockData";
-import { buildObjectDetail, normalizeId } from "./utils/objectDetails";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { RouterProvider, useRouter } from "./context/Router";
+import LandingPage from "./components/landing/LandingPage";
+import AuthLayout from "./components/auth/AuthLayout";
+import SignInForm from "./components/auth/SignInForm";
+import SignUpForm from "./components/auth/SignUpForm";
+import AuthTransition from "./components/auth/AuthTransition";
+import RadarDashboard from "./components/RadarDashboard";
+import { mockDashboardStats } from "./data/mockData";
 import { loadLiveDashboardData } from "./utils/liveData";
 
-const simulationClock = createSimulationClock();
+function AppContent() {
+  const { currentPath } = useRouter();
+  const { isAuthenticated } = useAuth();
 
-function createSimulationClock() {
-  const now = Cesium.JulianDate.now();
-  return new Cesium.Clock({
-    startTime: Cesium.JulianDate.addDays(now, -30, new Cesium.JulianDate()),
-    currentTime: now,
-    stopTime: Cesium.JulianDate.addDays(now, 30, new Cesium.JulianDate()),
-    clockRange: Cesium.ClockRange.CLAMPED,
-    clockStep: Cesium.ClockStep.SYSTEM_CLOCK_MULTIPLIER,
-    multiplier: 1,
-    shouldAnimate: true,
-  });
-}
+  const [transitioningOperator, setTransitioningOperator] = useState(null);
 
-export default function App() {
-  const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch | solar
-  const [showSweep, setShowSweep] = useState(false);
-  const [selectedObjectId, setSelectedObjectId] = useState(null);
-  const [selectedEventId, setSelectedEventId] = useState(null);
-  const [selectedBodyId, setSelectedBodyId] = useState(null);
-  const [corridorWaypoints, setCorridorWaypoints] = useState(null);
-  const [activeFilters, setActiveFilters] = useState([]);
-  const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
-
-  useEffect(() => {
-    // onTick fires on every render frame (~60/sec) while the globe's Cesium
-    // Viewer is running -- setCurrentTime unconditionally on every tick was
-    // forcing a full re-render of the entire dashboard tree (TopBar,
-    // StatCluster, RiskPanel, GlobeView, ...) 60 times a second, which is
-    // exactly the kind of thing that reads as "laggy," and gets worse the
-    // faster the simulated clock runs (more visually-distinct seconds
-    // passing, same 60 renders/sec either way). TimeControls only ever
-    // displays whole seconds, so only re-render when the displayed second
-    // actually changes, and debounce by real wall-clock time so that at
-    // fast multipliers (e.g. 3600x) we don't trigger 60 React updates per second.
-    let lastRealTime = performance.now();
-    let lastDisplayedSecond = Math.floor(Cesium.JulianDate.toDate(simulationClock.currentTime).getTime() / 1000);
-    const syncTime = (clock) => {
-      const now = performance.now();
-      if (now - lastRealTime < 200) return; // at most 5 renders per real second
-      
-      const date = Cesium.JulianDate.toDate(clock.currentTime);
-      const displayedSecond = Math.floor(date.getTime() / 1000);
-      if (displayedSecond === lastDisplayedSecond) return;
-      
-      lastRealTime = now;
-      lastDisplayedSecond = displayedSecond;
-      setCurrentTime(date);
-    };
-    simulationClock.onTick.addEventListener(syncTime);
-    return () => simulationClock.onTick.removeEventListener(syncTime);
-  }, []);
-
-  // Start with mock data so the UI renders immediately; swap in real data
-  // from the backend if/when it loads. If the backend isn't running (e.g.
-  // a frontend-only demo), this fails silently and mock data stays put --
-  // see src/frontend/src/utils/liveData.js for exactly what's real vs.
-  // still a placeholder (AI-3's ML risk/SHAP/maneuver output doesn't exist
-  // yet, so those fields stay empty even once live data loads).
-  const [objects, setObjects] = useState(mockObjects);
-  const [riskList, setRiskList] = useState(mockRiskList);
   const [dashboardStats, setDashboardStats] = useState(mockDashboardStats);
+  const [objectsCount, setObjectsCount] = useState(100);
 
   useEffect(() => {
     let cancelled = false;
     loadLiveDashboardData()
       .then((live) => {
         if (cancelled) return;
-        setObjects(live.objects);
-        setRiskList(live.riskList);
         setDashboardStats(live.dashboardStats);
+        setObjectsCount(live.objects?.length || 100);
       })
       .catch((err) => {
-        console.warn("[RADAR] Backend unreachable, using mock data:", err.message);
+        console.warn("[RADAR] AppContent stats load fallback:", err.message);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const visibleObjects = activeFilters.length === 0 ? objects : objects.filter((object) => {
-    const isSatellite = object.type === "satellite";
-    const isHighRisk = ["critical", "elevated", "high"].includes(object.risk_tier);
-    return activeFilters.some((filter) => {
-      if (filter === "active_satellites" || filter === "active_missions") return isSatellite;
-      if (filter === "tracked_debris") return !isSatellite;
-      if (filter === "high_risk_objects") return isHighRisk;
-      if (filter === "affected_satellites") return isSatellite && isHighRisk;
-      return true;
-    });
-  });
-  const selectedObject = objects.find((object) => normalizeId(object.object_id) === normalizeId(selectedObjectId));
-  const objectDetail = buildObjectDetail(selectedObject, riskList);
+  const handleAuthSuccess = (session) => {
+    setTransitioningOperator(session);
+  };
 
-  function handleChangeMode(nextMode) {
-    if (nextMode === "threat" && mode !== "threat") {
-      setShowSweep(true);
-    }
-    setMode(nextMode);
-  }
+  const handleTransitionComplete = () => {
+    setTransitioningOperator(null);
+  };
 
-  function handleFilterChange(filterKey) {
-    setActiveFilters((current) => current.includes(filterKey)
-      ? current.filter((filter) => filter !== filterKey)
-      : [...current, filterKey]);
-  }
-
-  function selectObject(objectId) {
-    setSelectedObjectId(objectId);
-  }
-
-  const isSolar = mode === "solar";
-
-  return (
-    <div className="radar-shell">
-      {isSolar ? (
-        <SolarSystemView
-          selectedBodyId={selectedBodyId}
-          onSelectBody={setSelectedBodyId}
-          simulationClock={simulationClock}
-        />
-      ) : (
-        <GlobeView
-          objects={visibleObjects}
-          mode={mode}
-          selectedObjectId={selectedObjectId}
-          onSelectObject={selectObject}
-          corridorWaypoints={corridorWaypoints}
-          simulationClock={simulationClock}
-        />
-      )}
-
-      <TopBar
-        mode={mode}
-        onChangeMode={handleChangeMode}
-        overallRiskStatus={dashboardStats.overall_risk_status}
-        objects={objects}
-        onSelectObject={selectObject}
-        timeControls={
-          <TimeControls
-            currentTime={currentTime}
-            playing={simulationClock.shouldAnimate}
-            playbackRate={simulationClock.multiplier}
-            onTogglePlay={() => { simulationClock.shouldAnimate = !simulationClock.shouldAnimate; setCurrentTime(Cesium.JulianDate.toDate(simulationClock.currentTime)); }}
-            onSetRate={(rate) => { simulationClock.multiplier = rate; simulationClock.shouldAnimate = true; }}
-            onStep={(milliseconds) => {
-              simulationClock.currentTime = Cesium.JulianDate.addSeconds(
-                simulationClock.currentTime,
-                milliseconds / 1000,
-                new Cesium.JulianDate(),
-              );
-              setCurrentTime(Cesium.JulianDate.toDate(simulationClock.currentTime));
-            }}
-            onSelectDate={(date) => {
-              simulationClock.currentTime = Cesium.JulianDate.fromDate(date);
-              setCurrentTime(date);
-            }}
-            rangeStart={Cesium.JulianDate.toDate(simulationClock.startTime)}
-            rangeStop={Cesium.JulianDate.toDate(simulationClock.stopTime)}
-            onSeek={(date) => {
-              simulationClock.currentTime = Cesium.JulianDate.fromDate(date);
-              setCurrentTime(date);
-            }}
-          />
-        }
+  // If transition overlay is active
+  if (transitioningOperator) {
+    return (
+      <AuthTransition
+        operator={transitioningOperator}
+        onComplete={handleTransitionComplete}
       />
+    );
+  }
 
-      {mode === "dashboard" && (
-        <StatCluster
-          stats={dashboardStats}
-          activeFilters={activeFilters}
-          onToggleFilter={handleFilterChange}
-          onSelectAll={() => setActiveFilters([])}
-        />
-      )}
+  // Handle Route Matching
+  if (currentPath === "/sign-in") {
+    return (
+      <AuthLayout
+        title="SYSTEM ACCESS // SIGN IN"
+        subtitle="OPERATOR CLEARANCE TERMINAL"
+      >
+        <SignInForm onAuthSuccess={handleAuthSuccess} />
+      </AuthLayout>
+    );
+  }
 
-      {mode === "threat" && (
-        <RiskPanel
-          riskList={riskList}
-          selectedEventId={selectedEventId}
-          onSelectEvent={setSelectedEventId}
-          onSelectObject={setSelectedObjectId}
-        />
-      )}
+  if (currentPath === "/sign-up") {
+    return (
+      <AuthLayout
+        title="OPERATOR REGISTRATION"
+        subtitle="NEW CLEARANCE REQUEST"
+      >
+        <SignUpForm onAuthSuccess={handleAuthSuccess} />
+      </AuthLayout>
+    );
+  }
 
-      {mode === "launch" && (
-        <div
-          className="hud-frame scrollbar-thin"
-          style={{
-            position: "absolute",
-            top: 84,
-            right: 18,
-            bottom: 18,
-            width: 340,
-            zIndex: 20,
-            overflowY: "auto",
-            padding: 16,
-          }}
+  if (currentPath === "/dashboard") {
+    if (!isAuthenticated) {
+      return (
+        <AuthLayout
+          title="OPERATIONAL CLEARANCE REQUIRED"
+          subtitle="AUTHENTICATED SESSION NEEDED"
         >
-          <LaunchPlanner onCorridorChange={setCorridorWaypoints} />
-          <div style={{ height: 24, borderTop: "1px solid var(--hairline)", marginBottom: 16 }} />
-          <ReentryWatchPanel />
-        </div>
-      )}
+          <div className="auth-error-banner mono" style={{ marginBottom: 16 }}>
+            <span>ACCESS RESTRICTED: PLEASE SIGN IN TO ACCESS THE 3D RADAR CONSOLE</span>
+          </div>
+          <SignInForm onAuthSuccess={handleAuthSuccess} />
+        </AuthLayout>
+      );
+    }
+    return <RadarDashboard />;
+  }
 
-      {isSolar ? (
-        <PlanetDetailPanel bodyId={selectedBodyId} onClose={() => setSelectedBodyId(null)} />
-      ) : (
-        <>
-          <ObjectDetailPanel object={objectDetail} onClose={() => setSelectedObjectId(null)} />
-          <RiskLegend />
-        </>
-      )}
+  // Default: Landing Page (/)
+  return (
+    <LandingPage
+      dashboardStats={dashboardStats}
+      objectsCount={objectsCount}
+    />
+  );
+}
 
-      {showSweep && <ScanSweep onComplete={() => setShowSweep(false)} />}
-    </div>
+export default function App() {
+  return (
+    <AuthProvider>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </AuthProvider>
   );
 }
