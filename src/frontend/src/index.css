@@ -334,6 +334,11 @@
   border-color: var(--signal-line);
   background: var(--signal-dim);
 }
+.globe-zoom-step.is-active {
+  color: var(--signal);
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+}
 .globe-zoom-step:focus-visible {
   outline: 2px solid var(--signal-line);
   outline-offset: 1px;

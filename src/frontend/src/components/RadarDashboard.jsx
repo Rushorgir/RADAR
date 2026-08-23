@@ -40,6 +40,7 @@ export default function RadarDashboard() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [selectedBodyId, setSelectedBodyId] = useState(null);
   const [corridorWaypoints, setCorridorWaypoints] = useState(null);
+  const [reentryPath, setReentryPath] = useState(null); // { waypoints, objectId, name } | null
   const [activeFilters, setActiveFilters] = useState([]);
   const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
 
@@ -146,6 +147,7 @@ export default function RadarDashboard() {
     setSelectedEventId(null);
     if (nextMode !== "launch") {
       setCorridorWaypoints(null);
+      setReentryPath(null);
     }
 
     // Await sync transition so visuals reload seamlessly
@@ -282,6 +284,7 @@ export default function RadarDashboard() {
           selectedObjectId={selectedObjectId}
           onSelectObject={selectObject}
           corridorWaypoints={corridorWaypoints}
+          reentryWaypoints={reentryPath?.waypoints ?? null}
           simulationClock={simulationClock}
         />
       )}
@@ -355,7 +358,11 @@ export default function RadarDashboard() {
         >
           <LaunchPlanner onCorridorChange={setCorridorWaypoints} />
           <div style={{ height: 24, borderTop: "1px solid var(--hairline)", marginBottom: 16 }} />
-          <ReentryWatchPanel />
+          <ReentryWatchPanel
+            onPathChange={(waypoints, meta) =>
+              setReentryPath(waypoints ? { waypoints, ...meta } : null)
+            }
+          />
         </div>
       )}
 

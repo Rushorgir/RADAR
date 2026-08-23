@@ -28,10 +28,12 @@ from src.propagation.models import (
     TrajectoryResult,
 )
 from src.propagation.reentry import (
+    DescentWaypoint,
     ReentryPrediction,
     ReentryRiskTier,
     classify_perigee_risk,
     estimate_days_to_reentry,
+    generate_descent_waypoints,
     predict_reentry_watch,
 )
 from src.propagation.sgp4_engine import (
@@ -48,6 +50,7 @@ __all__ = [
     "BatchPropagationResult",
     "CatalogPropagationArrays",
     "CorridorConflict",
+    "DescentWaypoint",
     "LaunchSafetyResult",
     "ObjectPosition",
     "PropagatedState",
@@ -68,6 +71,7 @@ __all__ = [
     "estimate_covariance_6x6_batch",
     "estimate_days_to_reentry",
     "generate_ascent_waypoints",
+    "generate_descent_waypoints",
     "is_positive_definite",
     "predict_reentry_watch",
     "propagate_catalog",

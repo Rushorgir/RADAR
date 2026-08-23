@@ -142,6 +142,40 @@ function evaluateOrbitPosition(orbit, time) {
   return new Cesium.Cartesian3(xECEF, yECEF, zECEF);
 }
 
+// The full orbit-path ring for one object, in ECEF, frozen at the model's
+// reference time (nodeLon0/u0 -- i.e. dtSec=0 in evaluateOrbitPosition
+// above). This deliberately does NOT trace forward through time the way
+// evaluateOrbitPosition does for the live point: sweeping u through a full
+// 2*PI while also advancing earthRot with it would draw a spiral that's
+// already drifted downrange by one Earth-rotation's worth of drift by the
+// time it closes, not a closed ring. Holding nodeLon fixed at the reference
+// epoch instead draws the clean closed ellipse the object's orbital plane
+// traces through ECEF space at that instant -- which by construction passes
+// exactly through the object's own current position (u=u0 gives back
+// evaluateOrbitPosition's dtSec=0 case). Like the point animation itself,
+// this is a visual approximation, not a real long-term ground-track
+// prediction -- see the comment above createOrbitalModel.
+const ORBIT_RING_SAMPLES = 128;
+function computeOrbitRingPositions(orbit) {
+  const cosNode = Math.cos(orbit.nodeLon0);
+  const sinNode = Math.sin(orbit.nodeLon0);
+  const positions = new Array(ORBIT_RING_SAMPLES + 1);
+  for (let i = 0; i <= ORBIT_RING_SAMPLES; i++) {
+    const u = (i / ORBIT_RING_SAMPLES) * 2 * Math.PI;
+    const xOrb = orbit.a * Math.cos(u);
+    const yOrb = orbit.a * Math.sin(u);
+
+    const x1 = xOrb;
+    const y1 = yOrb * Math.cos(orbit.inc);
+    const z1 = yOrb * Math.sin(orbit.inc);
+
+    const xECEF = x1 * cosNode - y1 * sinNode;
+    const yECEF = x1 * sinNode + y1 * cosNode;
+    positions[i] = new Cesium.Cartesian3(xECEF, yECEF, z1);
+  }
+  return positions;
+}
+
 function animationPhase(time, periodSeconds) {
   return (Cesium.JulianDate.toDate(time).getTime() / 1000 / periodSeconds) * Math.PI * 2;
 }
@@ -190,15 +224,19 @@ export default function GlobeView({
   selectedObjectId,
   onSelectObject,
   corridorWaypoints,
+  reentryWaypoints,
   simulationClock,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const corridorDataSourceRef = useRef(null);
+  const reentryDataSourceRef = useRef(null);
+  const orbitTrailDataSourceRef = useRef(null);
   const entityMapRef = useRef(new Map());
   const orbitModelsRef = useRef(new Map());
   const onSelectObjectRef = useRef(onSelectObject);
   const hoveredEntityRef = useRef(null);
+  const [showOrbits, setShowOrbits] = useState(true);
   // Must match the camera's actual starting height (WHOLE_GLOBE_DESTINATION,
   // defined below) -- not MAX_CAMERA_HEIGHT_M. The camera.changed listener
   // that would otherwise correct a wrong guess here isn't registered until
@@ -353,6 +391,20 @@ export default function GlobeView({
     viewer.dataSources.add(corridorDataSource);
     corridorDataSourceRef.current = corridorDataSource;
 
+    // Same reasoning: a separate DataSource for the re-entry descent path
+    // overlay, independent of the launch corridor so both can be shown
+    // together (planning a launch while also watching a decaying object).
+    const reentryDataSource = new Cesium.CustomDataSource("reentry-path");
+    viewer.dataSources.add(reentryDataSource);
+    reentryDataSourceRef.current = reentryDataSource;
+
+    // And another for per-object orbit-path rings, so toggling them or
+    // resyncing the tracked-object list doesn't disturb the corridor/reentry
+    // overlays living in their own data sources above.
+    const orbitTrailDataSource = new Cesium.CustomDataSource("orbit-trails");
+    viewer.dataSources.add(orbitTrailDataSource);
+    orbitTrailDataSourceRef.current = orbitTrailDataSource;
+
     viewerRef.current = viewer;
     return () => {
       destroyed = true;
@@ -363,6 +415,8 @@ export default function GlobeView({
       viewer.destroy();
       viewerRef.current = null;
       corridorDataSourceRef.current = null;
+      reentryDataSourceRef.current = null;
+      orbitTrailDataSourceRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -385,6 +439,30 @@ export default function GlobeView({
       orbitModels.set(objectId, createOrbitalModel(obj, referenceTime));
     });
     orbitModelsRef.current = orbitModels;
+
+    // ---- orbit-path rings for every tracked object (satellites + debris) ----
+    // A separate pass/data-source from the point entities below so clearing
+    // and toggling either one is independent of the other.
+    const orbitTrailDataSource = orbitTrailDataSourceRef.current;
+    if (orbitTrailDataSource) {
+      orbitTrailDataSource.entities.removeAll();
+      objects.forEach((obj) => {
+        const objectId = String(obj.object_id);
+        const orbit = orbitModels.get(objectId);
+        if (!orbit) return;
+        const isSelected = String(obj.object_id) === String(selectedObjectId);
+        const meta = getVisualMeta(obj);
+        const color = Cesium.Color.fromCssColorString(meta.color);
+        orbitTrailDataSource.entities.add({
+          polyline: {
+            positions: computeOrbitRingPositions(orbit),
+            width: isSelected ? 1.6 : 1,
+            material: color.withAlpha(isSelected ? 0.85 : 0.22),
+            depthFailMaterial: color.withAlpha(isSelected ? 0.25 : 0.05),
+          },
+        });
+      });
+    }
 
     objects.forEach((obj) => {
       const objectId = String(obj.object_id);
@@ -527,6 +605,94 @@ export default function GlobeView({
     });
   }, [corridorWaypoints, mode]);
 
+  // ---- draw the re-entry descent path overlay (Launch Planner mode) ----
+  // Mirrors the launch corridor effect above: a separate data source so a
+  // generated launch route and a selected re-entry watch object can both be
+  // shown on the globe at once. Styled distinctly (risk-critical color,
+  // dashed) so it doesn't read as "another ascent corridor".
+  useEffect(() => {
+    const dataSource = reentryDataSourceRef.current;
+    const viewer = viewerRef.current;
+    if (!dataSource) return;
+    dataSource.entities.removeAll();
+    if (mode !== "launch" || !reentryWaypoints || reentryWaypoints.length === 0) return;
+
+    // Frame the descent path the same way the corridor effect frames the
+    // ascent: offset south of the ground track and pitched up shallow, so
+    // the path's vertical extent reads as a line rather than foreshortening
+    // to a point under a straight-down nadir view.
+    if (viewer) {
+      const surfacePoint = reentryWaypoints[reentryWaypoints.length - 1];
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(
+          surfacePoint.longitude_deg,
+          surfacePoint.latitude_deg - 6,
+          1200000
+        ),
+        orientation: {
+          heading: 0,
+          pitch: Cesium.Math.toRadians(-20),
+          roll: 0,
+        },
+        duration: 1.2,
+      });
+    }
+
+    const positions = reentryWaypoints.map((w) =>
+      Cesium.Cartesian3.fromDegrees(w.longitude_deg, w.latitude_deg, w.altitude_km * 1000)
+    );
+    const reentryColor = Cesium.Color.fromCssColorString(cssVar("--risk-critical"));
+
+    dataSource.entities.add({
+      polyline: {
+        positions,
+        width: 3,
+        material: new Cesium.PolylineDashMaterialProperty({
+          color: reentryColor,
+          dashLength: 12,
+        }),
+        depthFailMaterial: undefined,
+        clampToGround: false,
+      },
+    });
+
+    // Current-position marker at the descent path's top (where the object
+    // is right now).
+    dataSource.entities.add({
+      position: positions[0],
+      point: {
+        pixelSize: 8,
+        color: Cesium.Color.WHITE,
+        outlineColor: reentryColor,
+        outlineWidth: 2,
+        disableDepthTestDistance: 0,
+      },
+    });
+
+    // Surface end marker -- the descent path's schematic "comes down around
+    // here" point, not a real impact prediction (see generate_descent_waypoints).
+    dataSource.entities.add({
+      position: positions[positions.length - 1],
+      point: {
+        pixelSize: 10,
+        color: reentryColor,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 1.5,
+        disableDepthTestDistance: 0,
+      },
+    });
+  }, [reentryWaypoints, mode]);
+
+  // ---- toggle orbit-path ring visibility without recomputing them ----
+  useEffect(() => {
+    const dataSource = orbitTrailDataSourceRef.current;
+    if (!dataSource) return;
+    dataSource.show = showOrbits;
+    try {
+      viewerRef.current?.scene.requestRender();
+    } catch (e) {}
+  }, [showOrbits]);
+
   // ---- fly to selected object ----
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -662,6 +828,17 @@ export default function GlobeView({
           onClick={handleResetView}
         >
           ⟲
+        </button>
+        <button
+          type="button"
+          className={showOrbits ? "globe-zoom-step globe-zoom-reset is-active" : "globe-zoom-step globe-zoom-reset"}
+          aria-label="Toggle orbit paths"
+          aria-pressed={showOrbits}
+          title={showOrbits ? "Hide orbit paths" : "Show orbit paths"}
+          onClick={() => setShowOrbits((v) => !v)}
+          style={{ fontSize: 10, letterSpacing: "0.04em" }}
+        >
+          ORBITS
         </button>
       </div>
     </div>

@@ -123,6 +123,22 @@ class ReentryWatchResponse(BaseModel):
     objects_screened: int
 
 
+class DescentWaypointResponse(BaseModel):
+    elapsed_s: float
+    latitude_deg: float
+    longitude_deg: float
+    altitude_km: float
+
+
+class ReentryPathResponse(BaseModel):
+    """A simplified descent-path visualization for one watched object
+    (src/propagation/reentry.py generate_descent_waypoints)."""
+    object_id: str
+    name: str
+    current_altitude_km: float
+    waypoints: list[DescentWaypointResponse]
+
+
 class LaunchSafetyRequest(BaseModel):
     """POST body for a launch corridor safety check."""
     launch_site: str | None = Field(None, description="A name from GET /api/launch/sites; overridden by explicit lat/lon if both are given")

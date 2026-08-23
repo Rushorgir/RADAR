@@ -92,6 +92,19 @@ export function fetchReentryWatch(dataset) {
   return getJson("/api/reentry/watch", dataset);
 }
 
+/**
+ * GET /api/reentry/{objectId}/path -> { object_id, name, current_altitude_km,
+ * waypoints: [{ elapsed_s, latitude_deg, longitude_deg, altitude_km }] }
+ *
+ * A simplified descent path from the object's real current SGP4-propagated
+ * altitude down to 0, ground track held fixed (src/propagation/reentry.py
+ * generate_descent_waypoints). Throws (404) if the object is already fully
+ * decayed and has no current position to descend from.
+ */
+export function fetchReentryPath(objectId, dataset) {
+  return getJson(`/api/reentry/${encodeURIComponent(objectId)}/path`, dataset);
+}
+
 /** GET /api/launch/sites -> [{ name, latitude_deg, longitude_deg }] */
 export function fetchLaunchSites(dataset) {
   return getJson("/api/launch/sites", dataset);

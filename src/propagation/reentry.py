@@ -98,6 +98,68 @@ def estimate_days_to_reentry(perigee_altitude_km: float, bstar: float) -> float 
     return round(min(days, 3650.0), 1)  # cap at ~10 years so a near-zero B* doesn't print nonsense
 
 
+DEFAULT_DESCENT_DURATION_S = 900.0  # ~15 minute visualization window for the final descent
+# Same reasoning as launch_corridor.DEFAULT_WAYPOINT_COUNT: enough points for
+# a smooth-looking curve on the globe without meaningfully finer resolution.
+DEFAULT_DESCENT_WAYPOINT_COUNT = 12
+
+
+def _smoothstep(t: float) -> float:
+    """Ease-in/ease-out from 0 to 1 -- same curve launch_corridor.py uses for
+    ascent, mirrored here so the descent doesn't have an unrealistic instant
+    drop to 0 altitude at t=0 (duplicated rather than imported: a small,
+    self-contained easing helper isn't worth a cross-module dependency)."""
+    return t * t * (3.0 - 2.0 * t)
+
+
+@dataclass(frozen=True)
+class DescentWaypoint:
+    elapsed_s: float
+    latitude_deg: float
+    longitude_deg: float
+    altitude_km: float
+
+
+def generate_descent_waypoints(
+    latitude_deg: float,
+    longitude_deg: float,
+    current_altitude_km: float,
+    duration_s: float = DEFAULT_DESCENT_DURATION_S,
+    n_waypoints: int = DEFAULT_DESCENT_WAYPOINT_COUNT,
+) -> list[DescentWaypoint]:
+    """
+    A simplified re-entry descent path for the globe view: eases from an
+    object's current altitude down to 0 over `duration_s`, holding the
+    ground track fixed at its current sub-satellite point -- the same
+    "straight down" conservative simplification launch_corridor.py uses for
+    ascent, mirrored here for descent. Real re-entry ground tracks drift
+    substantially downrange as drag increases through the descent; this is a
+    schematic "where it currently is and that it's coming down" visualization,
+    not a real footprint/impact-point prediction (nothing short of a full
+    atmospheric drag + breakup model, well out of scope here, can honestly
+    claim that -- see the module docstring).
+    """
+    if n_waypoints < 2:
+        raise ValueError("n_waypoints must be at least 2")
+    if current_altitude_km <= 0:
+        raise ValueError("current_altitude_km must be positive")
+
+    waypoints = []
+    for i in range(n_waypoints):
+        frac = i / (n_waypoints - 1)
+        elapsed_s = frac * duration_s
+        altitude_km = current_altitude_km * (1.0 - _smoothstep(frac))
+        waypoints.append(
+            DescentWaypoint(
+                elapsed_s=elapsed_s,
+                latitude_deg=latitude_deg,
+                longitude_deg=longitude_deg,
+                altitude_km=max(altitude_km, 0.0),
+            )
+        )
+    return waypoints
+
+
 @dataclass(frozen=True)
 class ReentryPrediction:
     object_id: str
