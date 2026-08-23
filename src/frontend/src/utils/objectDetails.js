@@ -59,9 +59,10 @@ export function buildObjectDetail(object, riskList) {
 }
 
 export function formatNumber(value, digits = 2) {
-  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "N/A";
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—";
 }
 
 export function formatProbability(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value.toExponential(2) : "N/A";
+  return typeof value === "number" && Number.isFinite(value) ? value.toExponential(2) : "—";
 }
+
