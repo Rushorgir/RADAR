@@ -34,6 +34,7 @@ class ObjectPosition:
     latitude_deg: float
     longitude_deg: float
     altitude_km: float
+    velocity_km_s: float | None = None
 
 
 def _epoch_to_jd_fr(epoch: datetime) -> tuple[float, float]:
@@ -88,12 +89,18 @@ def current_positions(parsed_tles: list[ParsedTLE], at: datetime | None = None) 
     print("Before teme_to_eci")
     pos_eci, vel_eci = teme_to_eci_batch(r_teme, v_teme, [at] * len(object_ids))
     print("Before eci_to_ecef")
-    pos_ecef, _vel_ecef = eci_to_ecef_batch(pos_eci, vel_eci, at)
-    print("Before ecef_to_geodetic")
+    pos_ecef, vel_ecef = eci_to_ecef_batch(pos_eci, vel_eci, at)
     lat_deg, lon_deg, alt_km = ecef_to_geodetic_batch(pos_ecef, at)
-    print("After transforms")
+
+    vel_mag_km_s = np.linalg.norm(vel_ecef, axis=1)
 
     return [
-        ObjectPosition(object_id=oid, latitude_deg=float(lat), longitude_deg=float(lon), altitude_km=float(alt))
-        for oid, lat, lon, alt in zip(object_ids, lat_deg, lon_deg, alt_km)
+        ObjectPosition(
+            object_id=oid,
+            latitude_deg=float(lat),
+            longitude_deg=float(lon),
+            altitude_km=float(alt),
+            velocity_km_s=float(v)
+        )
+        for oid, lat, lon, alt, v in zip(object_ids, lat_deg, lon_deg, alt_km, vel_mag_km_s)
     ]

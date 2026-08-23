@@ -77,6 +77,7 @@ export function tlesToObjects(tles, riskTierByObjectId, positionByObjectId = new
       type: objectTypeToGlobeType(tle.object_type),
       regime: "LEO",
       ...position,
+      velocity_km_s: realPosition?.velocity_km_s,
       cross_sectional_area_m2: null,
       risk_tier: riskTierByObjectId.get(String(tle.object_id)) ?? "nominal",
     };
@@ -100,6 +101,8 @@ export function conjunctionsToRiskList(events, nameByObjectId) {
     risk_tier: riskTierFromPc(event.pc),
     miss_distance_km: event.miss_distance_km,
     relative_velocity_kms: event.relative_velocity_km_s,
+    primary_object_type: event.primary_object_type,
+    secondary_object_type: event.secondary_object_type,
     time_to_closest_approach_hr: (new Date(event.tca).getTime() - Date.now()) / 3.6e6,
     regime: "LEO",
     // AI-3 not built yet -- always [] (never null/undefined), since

@@ -84,6 +84,7 @@ class ObjectPositionResponse(BaseModel):
     latitude_deg: float
     longitude_deg: float
     altitude_km: float
+    velocity_km_s: float | None = None
 
 
 class PositionsResponse(BaseModel):
