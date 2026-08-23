@@ -26,6 +26,8 @@
 // dashboard falling back to mock data over a globe-only issue.
 
 import { fetchConjunctions, fetchCurrentPositions, fetchTLEs, fetchDashboardSummary } from "./apiClient";
+import { mockObjects, mockRiskList, mockDashboardStats } from "../data/mockData";
+
 
 // Same thresholds as src/shared/constants/physical.py PcThresholds, so the
 // frontend's risk-tier coloring agrees with the backend/AI-2's own notion
@@ -156,6 +158,15 @@ export async function loadLiveDashboardData(dataset) {
 
   const tles = tleResponse.items ?? [];
   const events = conjunctionResponse.items ?? [];
+
+  if (tles.length === 0) {
+    return {
+      objects: mockObjects,
+      riskList: mockRiskList,
+      dashboardStats: mockDashboardStats,
+    };
+  }
+
   const positionByObjectId = new Map(
     (positionsResponse.positions ?? []).map((p) => [String(p.object_id), p])
   );
