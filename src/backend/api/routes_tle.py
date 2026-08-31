@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/tle", tags=["TLE"])
 async def get_tle_catalog(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    dataset: str = Query("default", description="Dataset namespace"),
+    dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"),
     db: Session = Depends(get_db)
 ):
     """Fetch paginated tracked satellites and active debris catalog."""
@@ -45,7 +45,7 @@ async def get_current_positions(
         "control) request real SGP4-propagated positions at any point along "
         "it, not just the actual current instant.",
     ),
-    dataset: str = Query("default", description="Dataset namespace"),
+    dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"),
     db: Session = Depends(get_db),
 ):
     """
@@ -87,7 +87,7 @@ async def get_current_positions(
     }
 
 @router.get("/{object_id}", response_model=TLEDataResponse)
-async def get_tle_for_object(object_id: str, dataset: str = Query("default", description="Dataset namespace"), db: Session = Depends(get_db)):
+async def get_tle_for_object(object_id: str, dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"), db: Session = Depends(get_db)):
     """Fetch the most recent TLE for a specific object."""
     tle = crud.get_tle_by_object_id(db, object_id, dataset_name=dataset)
     if not tle:

@@ -16,7 +16,7 @@ async def get_conjunction_events(
     limit: int = Query(100, ge=1, le=1000), 
     risk_category: str | None = Query(None, description="Filter by HIGH, MEDIUM, LOW"),
     sort_by: str = Query("tca", description="Sort by tca, pc, or ml_risk_score"),
-    dataset: str = Query("default", description="Dataset namespace"),
+    dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"),
     db: Session = Depends(get_db)
 ):
     """Fetch paginated conjunction events."""
@@ -31,7 +31,7 @@ async def get_conjunction_events(
     }
 
 @router.get("/{event_id}", response_model=ConjunctionEventResponse)
-async def get_conjunction_event(event_id: str, dataset: str = Query("default", description="Dataset namespace"), db: Session = Depends(get_db)):
+async def get_conjunction_event(event_id: str, dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"), db: Session = Depends(get_db)):
     """Fetch full details for a specific conjunction event."""
     event = crud.get_conjunction_event_by_id(db, event_id, dataset_name=dataset)
     if not event:

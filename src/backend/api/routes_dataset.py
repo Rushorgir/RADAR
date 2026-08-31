@@ -13,8 +13,8 @@ async def list_datasets(db: Session = Depends(get_db)):
     """List all available datasets in the database."""
     datasets = db.query(TLEModel.dataset_name).distinct().all()
     names = [row[0] for row in datasets]
-    if "default" not in names:
-        names.insert(0, "default")
+    if "Live LEO Catalog (Unified)" not in names:
+        names.insert(0, "Live LEO Catalog (Unified)")
     return {"datasets": names}
 
 @router.post("/import")
@@ -38,10 +38,10 @@ async def import_dataset(
 @router.delete("/{dataset_name}")
 async def delete_dataset(dataset_name: str, db: Session = Depends(get_db)):
     """Delete a custom dataset and all associated TLEs and conjunction events."""
-    if dataset_name.lower() == "default":
+    if dataset_name == "Live LEO Catalog (Unified)":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete the default dataset."
+            detail="Cannot delete the unified catalog."
         )
     
     tles_deleted = db.query(TLEModel).filter(TLEModel.dataset_name == dataset_name).delete(synchronize_session=False)

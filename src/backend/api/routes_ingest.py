@@ -24,9 +24,9 @@ async def ingest_conjunction(event_data: ConjunctionEventCreate, db: Session = D
     """Receives a ConjunctionEvent from AI-2, persists it, broadcasts via WebSocket."""
     data_dict = event_data.model_dump(mode="python")
 
-    event = crud.get_conjunction_event_by_id(db, event_data.event_id)
+    event = crud.get_conjunction_event_by_id(db, event_data.event_id, dataset_name=event_data.dataset_name)
     if event:
-        db_event = crud.update_conjunction_event(db, event_data.event_id, data_dict)
+        db_event = crud.update_conjunction_event(db, event_data.event_id, data_dict, dataset_name=event_data.dataset_name)
     else:
         db_event = crud.create_conjunction_event(db, data_dict)
 
@@ -53,7 +53,7 @@ async def ingest_risk_score(risk_data: RiskScoreUpdate, db: Session = Depends(ge
         data_dict["maneuver_new_miss_distance_km"] = adv.get("new_miss_distance_km")
         data_dict["maneuver_fuel_cost_estimate_kg"] = adv.get("fuel_cost_estimate_kg")
 
-    db_event = crud.update_conjunction_event(db, risk_data.event_id, data_dict)
+    db_event = crud.update_conjunction_event(db, risk_data.event_id, data_dict, dataset_name=risk_data.dataset_name)
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found to update risk score")
 

@@ -10,7 +10,7 @@ from src.backend.schemas.api_schemas import DashboardSummaryResponse
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
-async def get_dashboard_summary(dataset: str = "default", db: Session = Depends(get_db)):
+async def get_dashboard_summary(dataset: str = "Live LEO Catalog (Unified)", db: Session = Depends(get_db)):
     """Aggregated summary endpoints (KPIs, active alert counts, risk distributions)."""
     
     total_tracked = crud.get_tle_catalog_count(db, dataset_name=dataset)

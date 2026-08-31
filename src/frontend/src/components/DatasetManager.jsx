@@ -4,7 +4,7 @@ import { fetchDatasets, deleteDatasetApi, API_BASE } from "../utils/apiClient";
 
 export default function DatasetManager() {
   const { dataset, setDataset } = useDataset();
-  const [datasets, setDatasets] = useState(["default"]);
+  const [datasets, setDatasets] = useState(["Live LEO Catalog (Unified)"]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -40,7 +40,7 @@ export default function DatasetManager() {
   async function loadDatasets() {
     try {
       const data = await fetchDatasets();
-      setDatasets(data.datasets || ["default"]);
+      setDatasets(data.datasets || ["Live LEO Catalog (Unified)"]);
     } catch (err) {
       console.error("Failed to load datasets", err);
     }
@@ -48,13 +48,13 @@ export default function DatasetManager() {
 
   async function handleDelete(nameToDelete, e) {
     e.stopPropagation();
-    if (nameToDelete === "default") return;
+    if (nameToDelete === "Live LEO Catalog (Unified)") return;
 
     try {
       await deleteDatasetApi(nameToDelete);
       await loadDatasets();
-      // Always reset back to default as requested
-      setDataset("default");
+      // If we deleted the active one, fallback
+      setDataset("Live LEO Catalog (Unified)");
       setIsDropdownOpen(false);
     } catch (err) {
       console.error("Failed to delete dataset", err);
@@ -211,7 +211,7 @@ export default function DatasetManager() {
             >
               {datasets.map((d) => {
                 const isSelected = d === dataset;
-                const isDefault = d === "default";
+                const isDefault = d === "Live LEO Catalog (Unified)";
                 return (
                   <div
                     key={d}

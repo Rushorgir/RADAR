@@ -10,7 +10,7 @@ from src.backend.schemas.api_schemas import ManeuverAdvisoryResponse
 router = APIRouter(prefix="/api/maneuver", tags=["Maneuver"])
 
 @router.get("/{event_id}", response_model=ManeuverAdvisoryResponse)
-async def get_maneuver_advisory(event_id: str, dataset: str = "default", db: Session = Depends(get_db)):
+async def get_maneuver_advisory(event_id: str, dataset: str = "Live LEO Catalog (Unified)", db: Session = Depends(get_db)):
     """Deliver optimal Delta-v maneuver advisories for a given event."""
     event = crud.get_conjunction_event_by_id(db, event_id, dataset_name=dataset)
     if not event:
