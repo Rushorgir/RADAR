@@ -19,6 +19,7 @@ function makeObject(id, type, riskTier) {
     longitude: rand(-180, 180),
     latitude: rand(-70, 70),
     altitude_km: rand(400, 1200),
+    velocity_km_s: rand(7.2, 7.8),
     cross_sectional_area_m2: type === "satellite" ? rand(2, 12) : rand(0.01, 1.5),
     risk_tier: riskTier, // "critical" | "elevated" | "nominal"
   };

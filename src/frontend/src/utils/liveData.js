@@ -35,9 +35,9 @@ import { mockObjects, mockRiskList, mockDashboardStats } from "../data/mockData"
 const PC_HIGH_RISK = 1.0e-4;
 const PC_MEDIUM_RISK = 1.0e-6;
 
-function riskTierFromPc(pc) {
-  if (pc >= PC_HIGH_RISK) return "critical";
-  if (pc >= PC_MEDIUM_RISK) return "elevated";
+function getRiskTier(event) {
+  if (event.risk_category === "HIGH" || event.pc >= PC_HIGH_RISK) return "critical";
+  if (event.risk_category === "MEDIUM" || event.pc >= PC_MEDIUM_RISK) return "elevated";
   return "nominal";
 }
 
@@ -51,7 +51,8 @@ function stablePosition(seed) {
   const longitude = (h % 3600) / 10 - 180; // -180..180
   const latitude = ((h >> 8) % 1400) / 10 - 70; // -70..70
   const altitude_km = 400 + ((h >> 16) % 8000) / 10; // 400..1200
-  return { longitude, latitude, altitude_km };
+  const velocity_km_s = 7.2 + ((h >> 4) % 60) / 100; // 7.2..7.8 km/s fallback
+  return { longitude, latitude, altitude_km, velocity_km_s };
 }
 
 function objectTypeToGlobeType(objectType) {
@@ -69,7 +70,7 @@ export function tlesToObjects(tles, riskTierByObjectId, positionByObjectId = new
   return tles.map((tle) => {
     const realPosition = positionByObjectId.get(String(tle.object_id));
     const position = realPosition
-      ? { longitude: realPosition.longitude_deg, latitude: realPosition.latitude_deg, altitude_km: realPosition.altitude_km }
+      ? { longitude: realPosition.longitude_deg, latitude: realPosition.latitude_deg, altitude_km: realPosition.altitude_km, velocity_km_s: realPosition.velocity_km_s }
       : stablePosition(tle.object_id);
     return {
       object_id: tle.object_id,
@@ -77,7 +78,7 @@ export function tlesToObjects(tles, riskTierByObjectId, positionByObjectId = new
       type: objectTypeToGlobeType(tle.object_type),
       regime: "LEO",
       ...position,
-      velocity_km_s: realPosition?.velocity_km_s,
+      velocity_km_s: realPosition?.velocity_km_s ?? position.velocity_km_s,
       cross_sectional_area_m2: null,
       risk_tier: riskTierByObjectId.get(String(tle.object_id)) ?? "nominal",
     };
@@ -86,37 +87,36 @@ export function tlesToObjects(tles, riskTierByObjectId, positionByObjectId = new
 
 /** Real conjunction events -> mockRiskList shape (src/data/mockData.js). */
 export function conjunctionsToRiskList(events, nameByObjectId) {
-  return events.map((event) => ({
-    // Real event_id is a full UUID (backend/src/shared/interfaces/contracts.py) --
-    // fine as a stable React key, but RiskPanel's layout was built around
-    // short mock ids like "CDM-0091" and a full UUID crowds/wraps the
-    // object-name pair next to it. Shorten for display only.
-    event_id: `CDM-${event.event_id.slice(0, 8)}`,
-    primary_id: event.primary_id,
-    primary_name: nameByObjectId.get(String(event.primary_id)) ?? `OBJ-${event.primary_id}`,
-    secondary_id: event.secondary_id,
-    secondary_name: nameByObjectId.get(String(event.secondary_id)) ?? `OBJ-${event.secondary_id}`,
-    pc: event.pc,
-    risk_score: event.ml_risk_score ?? 0,
-    risk_tier: riskTierFromPc(event.pc),
-    miss_distance_km: event.miss_distance_km,
-    relative_velocity_kms: event.relative_velocity_km_s,
-    primary_object_type: event.primary_object_type,
-    secondary_object_type: event.secondary_object_type,
-    time_to_closest_approach_hr: (new Date(event.tca).getTime() - Date.now()) / 3.6e6,
-    regime: "LEO",
-    // AI-3 not built yet -- always [] (never null/undefined), since
-    // RiskPanel calls .map() on this unconditionally.
-    shap_top3: (event.shap_top_features ?? []).map((f) => ({
-      feature: f.feature,
-      contribution: f.impact,
-    })),
-    maneuver_advisory: event.maneuver_delta_v_m_s == null ? null : {
-      delta_v_ms: event.maneuver_delta_v_m_s,
-      direction: event.maneuver_burn_direction,
-      resulting_miss_distance_km: event.maneuver_new_miss_distance_km,
-    },
-  }));
+  return events.map((event) => {
+    const rawShap = event.shap_top_features ?? [];
+    const totalImpact = rawShap.reduce((sum, f) => sum + Math.abs(f.impact), 0);
+    
+    return {
+      event_id: `CDM-${event.event_id.slice(0, 8)}`,
+      primary_id: event.primary_id,
+      primary_name: nameByObjectId.get(String(event.primary_id)) ?? `OBJ-${event.primary_id}`,
+      secondary_id: event.secondary_id,
+      secondary_name: nameByObjectId.get(String(event.secondary_id)) ?? `OBJ-${event.secondary_id}`,
+      pc: event.pc,
+      risk_score: event.ml_risk_score ?? 0,
+      risk_tier: getRiskTier(event),
+      miss_distance_km: event.miss_distance_km,
+      relative_velocity_kms: event.relative_velocity_km_s,
+      primary_object_type: event.primary_object_type,
+      secondary_object_type: event.secondary_object_type,
+      time_to_closest_approach_hr: (new Date(event.tca).getTime() - Date.now()) / 3.6e6,
+      regime: "LEO",
+      shap_top3: rawShap.map((f) => ({
+        feature: f.feature,
+        contribution: totalImpact > 0 ? (Math.abs(f.impact) / totalImpact) * 100 : 0,
+      })),
+      maneuver_advisory: event.maneuver_delta_v_m_s == null ? null : {
+        delta_v_ms: event.maneuver_delta_v_m_s,
+        direction: event.maneuver_burn_direction,
+        resulting_miss_distance_km: event.maneuver_new_miss_distance_km,
+      },
+    };
+  });
 }
 
 /** Real dashboard summary + TLE type counts -> mockDashboardStats shape. */
@@ -177,7 +177,7 @@ export async function loadLiveDashboardData(dataset) {
   const nameByObjectId = new Map(tles.map((t) => [String(t.object_id), t.object_name || `OBJ-${t.object_id}`]));
   const riskTierByObjectId = new Map();
   for (const event of events) {
-    const tier = riskTierFromPc(event.pc);
+    const tier = getRiskTier(event);
     for (const id of [event.primary_id, event.secondary_id]) {
       const existing = riskTierByObjectId.get(String(id));
       // Keep the worst tier seen if an object appears in multiple events.

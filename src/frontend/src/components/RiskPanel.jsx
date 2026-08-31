@@ -14,12 +14,12 @@ function FeatureBar({ feature, contribution }) {
         className="mono"
       >
         <span>{feature.replace(/_/g, " ")}</span>
-        <span>{(contribution * 100).toFixed(0)}%</span>
+        <span>{contribution.toFixed(0)}%</span>
       </div>
       <div style={{ height: 3, background: "var(--hairline)", borderRadius: 2 }}>
         <div
           style={{
-            width: `${contribution * 100}%`,
+            width: `${contribution}%`,
             height: "100%",
             background: "var(--signal)",
             borderRadius: 2,

@@ -79,6 +79,7 @@ async def get_current_positions(
                 "latitude_deg": p.latitude_deg,
                 "longitude_deg": p.longitude_deg,
                 "altitude_km": p.altitude_km,
+                "velocity_km_s": p.velocity_km_s,
             }
             for p in positions
         ],

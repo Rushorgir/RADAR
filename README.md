@@ -69,9 +69,9 @@ RADAR/
 │   ├── tle_cache/          # Cached TLE files from Celestrak
 │   ├── cdm_reference/      # ESA Kelvins 2019 CDM reference data
 │   └── radar.db            # Local SQLite database (ignored by git)
-├── resources/              # Problem statement PDFs, team plan
 ├── scripts/
-│   └── run_radar_pipeline.py # End-to-end pipeline execution CLI
+│   ├── run_radar_pipeline.py # End-to-end pipeline execution CLI
+│   └── rescore_db.py       # Re-score conjunction events using AI-3 ML ranking model
 ├── src/
 │   ├── ingestion/          # [AI-1] TLE fetch & parse from Celestrak
 │   ├── propagation/        # [AI-1] SGP4 propagation engine

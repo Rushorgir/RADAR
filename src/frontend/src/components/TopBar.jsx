@@ -8,7 +8,6 @@ const MODES = [
   { id: "dashboard", label: "Overview" },
   { id: "threat", label: "Threat Analysis" },
   { id: "launch", label: "Launch Planner" },
-  { id: "solar", label: "Solar System" },
 ];
 
 export default function TopBar({ mode, onChangeMode, _overallRiskStatus, objects, onSelectObject, timeControls }) {

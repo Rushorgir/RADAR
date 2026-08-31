@@ -32,26 +32,37 @@ export default function ObjectDetailPanel({ object, onClose }) {
         {object.risk.label} risk
       </div>
 
-      {isSatellite ? (
-        <div className="detail-grid">
-          <DetailRow label="Object type" value={object.type} />
-          <DetailRow label="Orbital regime" value={object.regime} />
-          <DetailRow label={object.velocityLabel} value={formatNumber(object.velocity, 1)} unit="km/s" />
-          <DetailRow label="At-risk debris" value={object.atRiskDebrisCount} />
+      <div className="detail-grid">
+        <DetailRow label="Risk score" value={formatNumber(object.riskScore, 2)} />
+        <DetailRow label="Collision probability" value={formatProbability(object.collisionProbability)} />
+        <DetailRow label="Miss distance" value={formatNumber(object.missDistance, 2)} unit={typeof object.missDistance === 'string' ? '' : 'km'} />
+        <DetailRow label="Velocity" value={formatNumber(object.velocity, 1)} unit="km/s" />
+        <DetailRow label="Rel. velocity" value={formatNumber(object.relativeVelocity, 1)} unit={typeof object.relativeVelocity === 'string' ? '' : 'km/s'} />
+        <DetailRow label="Object type" value={object.type} />
+        <DetailRow label="Orbital regime" value={object.regime} />
+        {isSatellite && <DetailRow label="At-risk debris" value={object.atRiskDebrisCount} />}
+      </div>
+      
+      {object.hasEvent && object.shapTop3?.length > 0 && (
+        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--hairline)', paddingTop: '1rem' }}>
+          <span className="eyebrow" style={{ display: 'block', marginBottom: '0.5rem' }}>Top Risk Factors (SHAP)</span>
+          {object.shapTop3.map((f, i) => (
+            <DetailRow key={i} label={f.feature} value={formatNumber(f.contribution, 1)} unit="%" />
+          ))}
         </div>
-      ) : (
-        <div className="detail-grid">
-          <DetailRow label="Risk score" value={formatNumber(object.riskScore, 2)} />
-          <DetailRow label="Collision probability" value={formatProbability(object.collisionProbability)} />
-          <DetailRow label="Miss distance" value={formatNumber(object.missDistance, 2)} unit="km" />
-          <DetailRow label={object.velocityLabel} value={formatNumber(object.velocity, 1)} unit="km/s" />
-          <DetailRow label="Object type" value={object.type} />
-          <DetailRow label="Orbital regime" value={object.regime} />
+      )}
+
+      {object.hasEvent && object.maneuverAdvisory && (
+        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--hairline)', paddingTop: '1rem' }}>
+          <span className="eyebrow" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--risk-nominal)' }}>Maneuver Advisory</span>
+          <DetailRow label="Δv Required" value={formatNumber(object.maneuverAdvisory.delta_v_ms, 2)} unit="m/s" />
+          <DetailRow label="Burn Direction" value={object.maneuverAdvisory.direction} />
+          <DetailRow label="New Miss Dist." value={formatNumber(object.maneuverAdvisory.resulting_miss_distance_km, 2)} unit="km" />
         </div>
       )}
 
       <div className="detail-footer eyebrow">
-        {object.eventId ? `Conjunction // ${object.eventId}` : "No active conjunction assessment"}
+        {object.hasEvent ? `Conjunction // ${object.eventId}` : "72h Horizon Clear"}
       </div>
     </aside>
   );

@@ -24,17 +24,34 @@ test("selects the highest-risk conjunction for an object", () => {
   );
   assert.equal(detail.eventId, "HIGH");
   assert.equal(detail.collisionProbability, 3.2e-3);
-  assert.equal(detail.velocity, 11.7);
+  assert.equal(detail.relativeVelocity, 11.7);
   assert.equal(detail.risk.label, "Critical");
+});
+
+test("handles objects with both own velocity and active conjunction", () => {
+  const detail = buildObjectDetail(
+    { object_id: 1010, name: "SAT-1010", type: "satellite", velocity_km_s: 7.6, risk_tier: "critical", regime: "LEO" },
+    [
+      { event_id: "CDM-0091", primary_id: 1010, secondary_id: 2101, risk_score: 0.94, pc: 3.2e-3, miss_distance_km: 0.42, relative_velocity_kms: 11.7 },
+    ],
+  );
+  assert.equal(detail.velocity, 7.6);
+  assert.equal(detail.relativeVelocity, 11.7);
+  assert.equal(formatNumber(detail.velocity, 1), "7.6");
+  assert.equal(formatNumber(detail.relativeVelocity, 1), "11.7");
 });
 
 test("handles objects without a conjunction safely", () => {
   const detail = buildObjectDetail({ object_id: 99, type: "satellite", risk_tier: "nominal" }, []);
-  assert.equal(detail.collisionProbability, undefined);
-  assert.equal(detail.missDistance, undefined);
+  assert.equal(detail.collisionProbability, "< 1.00e-8 (Clear)");
+  assert.equal(detail.missDistance, "> 10.00 (Safe Separation)");
+  assert.equal(detail.velocity, undefined);
+  assert.equal(detail.relativeVelocity, undefined);
   assert.equal(detail.risk.label, "Low");
-  assert.equal(formatNumber(detail.missDistance), "—");
-  assert.equal(formatProbability(detail.collisionProbability), "—");
+  assert.equal(formatNumber(detail.missDistance), "> 10.00 (Safe Separation)");
+  assert.equal(formatNumber(detail.velocity, 1), "—");
+  assert.equal(formatNumber(detail.relativeVelocity, 1), "—");
+  assert.equal(formatProbability(detail.collisionProbability), "< 1.00e-8 (Clear)");
 });
 
 test("maps presentation risk labels", () => {

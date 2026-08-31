@@ -86,9 +86,7 @@ def current_positions(parsed_tles: list[ParsedTLE], at: datetime | None = None) 
     r_teme = np.asarray(r_teme_rows, dtype=float)
     v_teme = np.asarray(v_teme_rows, dtype=float)
 
-    print("Before teme_to_eci")
     pos_eci, vel_eci = teme_to_eci_batch(r_teme, v_teme, [at] * len(object_ids))
-    print("Before eci_to_ecef")
     pos_ecef, vel_ecef = eci_to_ecef_batch(pos_eci, vel_eci, at)
     lat_deg, lon_deg, alt_km = ecef_to_geodetic_batch(pos_ecef, at)
 

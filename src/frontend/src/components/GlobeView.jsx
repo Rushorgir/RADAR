@@ -605,7 +605,7 @@ export default function GlobeView({
           <span className="tooltip-type" style={{ color: tooltip.color }}>{tooltip.type}</span>
           <span>ALTITUDE: {tooltip.altitude}</span>
           <span>VELOCITY: {tooltip.velocity}</span>
-          <span>RISK: {tooltip.label.toUpperCase()}</span>
+          {tooltip.label !== "Satellite" && <span>RISK: {tooltip.label.toUpperCase()}</span>}
         </div>
       )}
 

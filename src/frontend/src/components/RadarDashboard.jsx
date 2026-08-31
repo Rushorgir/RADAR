@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import * as Cesium from "cesium";
 import GlobeView from "./GlobeView";
-import SolarSystemView from "./SolarSystemView";
 import TopBar from "./TopBar";
 import StatCluster from "./StatCluster";
 import RiskPanel from "./RiskPanel";
@@ -9,7 +8,6 @@ import LaunchPlanner from "./LaunchPlanner";
 import ReentryWatchPanel from "./ReentryWatchPanel";
 import ScanSweep from "./ScanSweep";
 import ObjectDetailPanel from "./ObjectDetailPanel";
-import PlanetDetailPanel from "./PlanetDetailPanel";
 import RiskLegend from "./RiskLegend";
 import TimeControls from "./TimeControls";
 import { mockObjects, mockRiskList, mockDashboardStats } from "../data/mockData";
@@ -34,11 +32,10 @@ function createSimulationClock() {
 
 export default function RadarDashboard() {
   const { dataset } = useDataset();
-  const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch | solar
+  const [mode, setMode] = useState("dashboard"); // dashboard | threat | launch
   const [showSweep, setShowSweep] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
-  const [selectedBodyId, setSelectedBodyId] = useState(null);
   const [corridorWaypoints, setCorridorWaypoints] = useState(null);
   const [activeFilters, setActiveFilters] = useState([]);
   const [currentTime, setCurrentTime] = useState(() => Cesium.JulianDate.toDate(simulationClock.currentTime));
@@ -135,7 +132,6 @@ export default function RadarDashboard() {
       threat: "CONJUNCTION & THREAT MATRIX",
       reentry: "ATMOSPHERIC RE-ENTRY WATCH",
       launch: "LAUNCH CORRIDOR PLANNER",
-      solar: "SOLAR SYSTEM ORRERY",
     };
 
     setIsTabSyncing(true);
@@ -168,8 +164,6 @@ export default function RadarDashboard() {
     setActiveFilters([]);
     setSelectedObjectId(objectId);
   }
-
-  const isSolar = mode === "solar";
 
   return (
     <div className="radar-shell">
@@ -268,23 +262,15 @@ export default function RadarDashboard() {
         </div>
       )}
 
-      {isSolar ? (
-        <SolarSystemView
-          selectedBodyId={selectedBodyId}
-          onSelectBody={setSelectedBodyId}
-          simulationClock={simulationClock}
-        />
-      ) : (
-        <GlobeView
-          key={`${dataset}-${mode}`}
-          objects={visibleObjects}
-          mode={mode}
-          selectedObjectId={selectedObjectId}
-          onSelectObject={selectObject}
-          corridorWaypoints={corridorWaypoints}
-          simulationClock={simulationClock}
-        />
-      )}
+      <GlobeView
+        key={`${dataset}-${mode}`}
+        objects={visibleObjects}
+        mode={mode}
+        selectedObjectId={selectedObjectId}
+        onSelectObject={selectObject}
+        corridorWaypoints={corridorWaypoints}
+        simulationClock={simulationClock}
+      />
 
       <TopBar
         mode={mode}
@@ -359,14 +345,8 @@ export default function RadarDashboard() {
         </div>
       )}
 
-      {isSolar ? (
-        <PlanetDetailPanel bodyId={selectedBodyId} onClose={() => setSelectedBodyId(null)} />
-      ) : (
-        <>
-          <ObjectDetailPanel object={objectDetail} onClose={() => setSelectedObjectId(null)} />
-          <RiskLegend />
-        </>
-      )}
+      <ObjectDetailPanel object={objectDetail} onClose={() => setSelectedObjectId(null)} />
+      <RiskLegend />
 
       {showSweep && <ScanSweep onComplete={() => setShowSweep(false)} />}
     </div>

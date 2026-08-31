@@ -1,8 +1,15 @@
 import { useState } from "react";
 
 const STEP_MS = 60 * 60 * 1000;
-const RATE_STEPS = [1, 600, 3600, 86400];
-const ALL_RATES = [-86400, -3600, -600, -1, 1, 600, 3600, 86400];
+const RATE_STEPS = [1, 60, 600, 3600];
+const ALL_RATES = [-3600, -600, -60, -1, 1, 60, 600, 3600];
+
+const RATE_TOOLTIPS = {
+  1: "Real-time (Orbit: ~95 minutes)",
+  60: "1 real second = 1 min (Orbit: ~1.5 minutes)",
+  600: "1 real second = 10 mins (Orbit: ~9.5 seconds)",
+  3600: "1 real second = 1 hour (Orbit: ~1.5 seconds)"
+};
 
 function formatTime(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
@@ -48,6 +55,7 @@ function CalendarPopover({ date, onSelectDate }) {
 
 export default function TimeControls({ currentTime, playing, playbackRate, onTogglePlay, onSetRate, onStep, onSelectDate, rangeStart, rangeStop, onSeek }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [hoveredRate, setHoveredRate] = useState(null);
   
   const rateMagnitude = Math.abs(playbackRate);
   const rateLabel = `${playbackRate < 0 ? "−" : "×"}${rateMagnitude}`;
@@ -70,9 +78,36 @@ export default function TimeControls({ currentTime, playing, playbackRate, onTog
         <span className="eyebrow">{formatDate(currentTime)} // {rateLabel} SIM</span>
       </div>
       {calendarOpen && <CalendarPopover date={currentTime} onSelectDate={onSelectDate} />}
-      <div className="time-rate-presets" aria-label="Playback rate presets">
+      <div className="time-rate-presets" aria-label="Playback rate presets" style={{ position: 'relative' }}>
         <span className="eyebrow" style={{ marginRight: 12 }}>Simulation Speed</span>
-        {RATE_STEPS.map((rate) => <button type="button" className={rateMagnitude === rate && playbackRate > 0 ? "rate-preset active" : "rate-preset"} key={rate} onClick={() => onSetRate(rate)}>{rate}×</button>)}
+        {RATE_STEPS.map((rate) => (
+          <button
+            type="button"
+            className={rateMagnitude === rate && playbackRate > 0 ? "rate-preset active" : "rate-preset"}
+            key={rate}
+            onClick={() => onSetRate(rate)}
+            onMouseEnter={() => setHoveredRate(rate)}
+            onMouseLeave={() => setHoveredRate(null)}
+          >
+            {rate}×
+          </button>
+        ))}
+        {hoveredRate && (
+          <div className="hud-frame" style={{ 
+            position: 'absolute', 
+            bottom: '100%', 
+            right: 0, 
+            marginBottom: '8px', 
+            padding: '8px 12px', 
+            whiteSpace: 'nowrap', 
+            fontSize: '11px', 
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-mono)',
+            zIndex: 100
+          }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{hoveredRate}× Speed:</strong> {RATE_TOOLTIPS[hoveredRate]}
+          </div>
+        )}
       </div>
     </div>
   );

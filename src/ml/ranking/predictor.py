@@ -68,15 +68,15 @@ class MLRiskPredictor:
         
         preds = np.asarray(self.model.predict(df_feat))[0]
         
+        # Continuous risk score monotonic with collision danger (0.0 = safe, 1.0 = critical)
+        risk_score = float(np.clip(preds[2] + 0.5 * preds[1], 0.0, 1.0))
+        
         if preds[2] >= threshold_high:
             pred_class_idx = 2
-            risk_score = float(preds[2])
         elif preds[1] >= threshold_med:
             pred_class_idx = 1
-            risk_score = float(preds[1])
         else:
             pred_class_idx = 0
-            risk_score = float(preds[0])
             
         risk_category = self.class_mapping[pred_class_idx]
         

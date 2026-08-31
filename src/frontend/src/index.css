@@ -396,22 +396,6 @@
   box-shadow: 0 0 0 3px var(--signal-line);
 }
 
-/* ---- Solar System view ---- */
-.solar-canvas {
-  cursor: grab;
-}
-.solar-canvas:active {
-  cursor: grabbing;
-}
-.solar-label {
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  transform: translateY(-14px);
-  text-shadow: 0 0 4px rgba(5, 7, 12, 0.9), 0 0 8px rgba(5, 7, 12, 0.7);
-  pointer-events: none;
-}
 
 /* ==========================================================================
    LANDING PAGE AESTHETICS (AEROSPACE MISSION CONTROL)

@@ -31,9 +31,11 @@ function eventForObject(object, riskList) {
 export function buildObjectDetail(object, riskList) {
   if (!object) return null;
   const event = eventForObject(object, riskList);
-  const score = event?.risk_score ?? object.risk_score;
-  const risk = getRiskMeta(object.risk_tier ?? event?.risk_tier, score);
-  const velocity = object.velocity_km_s ?? event?.relative_velocity_kms;
+  const hasEvent = !!event;
+  const score = hasEvent ? (event.risk_score ?? object.risk_score) : "0.00 (Nominal)";
+  const risk = getRiskMeta(object.risk_tier ?? event?.risk_tier ?? "nominal", hasEvent ? score : 0);
+  const velocity = object.velocity_km_s;
+  const relativeVelocity = hasEvent ? event?.relative_velocity_kms : "N/A (No Threat)";
 
   const objectId = normalizeId(object.object_id);
   const atRiskDebrisCount = riskList.filter((e) => {
@@ -48,21 +50,27 @@ export function buildObjectDetail(object, riskList) {
     type: object.type ?? "unknown",
     regime: object.regime ?? "UNASSESSED",
     riskScore: score,
-    collisionProbability: event?.pc,
-    missDistance: event?.miss_distance_km,
+    collisionProbability: hasEvent ? event.pc : "< 1.00e-8 (Clear)",
+    missDistance: hasEvent ? event.miss_distance_km : "> 10.00 (Safe Separation)",
     velocity,
-    velocityLabel: object.velocity_km_s === undefined ? "Relative velocity" : "Velocity",
+    relativeVelocity,
     risk,
     eventId: event?.event_id,
     atRiskDebrisCount,
+    hasEvent,
+    shapTop3: event?.shap_top3 ?? [],
+    maneuverAdvisory: event?.maneuver_advisory ?? null,
+    timeToClosestApproachHr: event?.time_to_closest_approach_hr ?? null,
   };
 }
 
 export function formatNumber(value, digits = 2) {
+  if (typeof value === "string") return value;
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—";
 }
 
 export function formatProbability(value) {
+  if (typeof value === "string") return value;
   return typeof value === "number" && Number.isFinite(value) ? value.toExponential(2) : "—";
 }
 

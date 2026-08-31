@@ -111,6 +111,6 @@ export function getTooltipData(object) {
     id: object?.name ?? `OBJ-${object?.object_id ?? "—"}`,
     type: object?.type === "satellite" ? "SATELLITE" : `${meta.label.toUpperCase()} DEBRIS`,
     altitude: typeof object?.altitude_km === "number" ? `${object.altitude_km.toFixed(0)} KM` : "—",
-    velocity: object?.velocity_km_s ? `${object.velocity_km_s.toFixed(1)} KM/S` : "—",
+    velocity: typeof object?.velocity_km_s === "number" && Number.isFinite(object.velocity_km_s) ? `${object.velocity_km_s.toFixed(1)} KM/S` : "—",
   };
 }
