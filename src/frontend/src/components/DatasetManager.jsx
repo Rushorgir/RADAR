@@ -4,7 +4,7 @@ import { fetchDatasets, deleteDatasetApi, API_BASE } from "../utils/apiClient";
 
 export default function DatasetManager() {
   const { dataset, setDataset } = useDataset();
-  const [datasets, setDatasets] = useState(["Live LEO Catalog (Unified)"]);
+  const [datasets, setDatasets] = useState(["default"]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -32,7 +32,7 @@ export default function DatasetManager() {
       if (wsRef.current) {
         try {
           wsRef.current.close();
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, []);
@@ -40,7 +40,7 @@ export default function DatasetManager() {
   async function loadDatasets() {
     try {
       const data = await fetchDatasets();
-      setDatasets(data.datasets || ["Live LEO Catalog (Unified)"]);
+      setDatasets(data.datasets || ["default"]);
     } catch (err) {
       console.error("Failed to load datasets", err);
     }
@@ -48,13 +48,13 @@ export default function DatasetManager() {
 
   async function handleDelete(nameToDelete, e) {
     e.stopPropagation();
-    if (nameToDelete === "Live LEO Catalog (Unified)") return;
+    if (nameToDelete === "default") return;
 
     try {
       await deleteDatasetApi(nameToDelete);
       await loadDatasets();
-      // If we deleted the active one, fallback
-      setDataset("Live LEO Catalog (Unified)");
+      // Always reset back to default as requested
+      setDataset("default");
       setIsDropdownOpen(false);
     } catch (err) {
       console.error("Failed to delete dataset", err);
@@ -93,14 +93,14 @@ export default function DatasetManager() {
               setProgress(val);
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       };
       ws.onerror = () => {
         // Fallback reconnection after delay
         setTimeout(setupWebSocket, 3000);
       };
       wsRef.current = ws;
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function openModal() {
@@ -211,7 +211,7 @@ export default function DatasetManager() {
             >
               {datasets.map((d) => {
                 const isSelected = d === dataset;
-                const isDefault = d === "Live LEO Catalog (Unified)";
+                const isDefault = d === "default";
                 return (
                   <div
                     key={d}

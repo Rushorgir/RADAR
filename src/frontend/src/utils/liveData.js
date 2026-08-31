@@ -119,22 +119,21 @@ export function conjunctionsToRiskList(events, nameByObjectId) {
   });
 }
 
-/** Real dashboard summary + TLE type counts -> mockDashboardStats shape. */
-export function buildDashboardStats(summary, tles) {
-  const activeSatellites = tles.filter((t) => t.object_type === "PAYLOAD").length;
-  // Everything not a confirmed active payload -- DEBRIS, ROCKET_BODY, and
-  // UNKNOWN (Celestrak's "analyst" group of uncatalogued fragments) -- so
-  // this always sums with active_satellites back to the real total instead
-  // of silently undercounting whenever a non-DEBRIS, non-PAYLOAD type shows
-  // up in the catalog.
-  const trackedDebris = tles.length - activeSatellites;
-  const highRisk = summary.risk_distribution?.HIGH ?? 0;
+/** Real dashboard summary + objects array -> mockDashboardStats shape. */
+export function buildDashboardStats(summary, objects) {
+  const activeSatellites = objects.filter((o) => o.type === "satellite").length;
+  const trackedDebris = objects.length - activeSatellites;
+  
+  const isHighRisk = (o) => ["critical", "elevated", "high"].includes(o.risk_tier);
+  const highRiskObjectsCount = objects.filter(isHighRisk).length;
+  const affectedSatellitesCount = objects.filter((o) => o.type === "satellite" && isHighRisk(o)).length;
+
   return {
     active_satellites: activeSatellites,
     tracked_debris: trackedDebris,
-    high_risk_objects: highRisk,
-    affected_satellites: summary.active_high_risk_alerts ?? 0,
-    overall_risk_status: highRisk > 0 ? "critical" : summary.total_conjunction_events > 0 ? "elevated" : "nominal",
+    high_risk_objects: highRiskObjectsCount,
+    affected_satellites: affectedSatellitesCount,
+    overall_risk_status: highRiskObjectsCount > 0 ? "critical" : summary.total_conjunction_events > 0 ? "elevated" : "nominal",
     active_missions: activeSatellites,
   };
 }
@@ -187,10 +186,11 @@ export async function loadLiveDashboardData(dataset) {
     }
   }
 
+  const mappedObjects = tlesToObjects(tles, riskTierByObjectId, positionByObjectId);
   return {
-    objects: tlesToObjects(tles, riskTierByObjectId, positionByObjectId),
+    objects: mappedObjects,
     riskList: conjunctionsToRiskList(events, nameByObjectId),
-    dashboardStats: buildDashboardStats(summary, tles),
+    dashboardStats: buildDashboardStats(summary, mappedObjects),
   };
 }
 

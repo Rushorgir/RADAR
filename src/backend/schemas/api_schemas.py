@@ -165,7 +165,6 @@ class LaunchSiteResponse(BaseModel):
 class ConjunctionEventCreate(BaseModel):
     """POST body for ingesting a new conjunction event from AI-2."""
     # Essentially reusing the shared contract schema, just validating it comes in correctly
-    dataset_name: str = "Live LEO Catalog (Unified)"
     event_id: str
     primary_id: str
     secondary_id: str
@@ -186,7 +185,6 @@ class ConjunctionEventCreate(BaseModel):
 
 class RiskScoreUpdate(BaseModel):
     """POST body for updating risk scores from AI-3."""
-    dataset_name: str = "Live LEO Catalog (Unified)"
     event_id: str
     ml_risk_score: float
     risk_category: RiskCategory
@@ -196,7 +194,6 @@ class RiskScoreUpdate(BaseModel):
 
 class TLECreate(BaseModel):
     """POST body for ingesting TLE data from AI-1."""
-    dataset_name: str = "Live LEO Catalog (Unified)"
     object_id: str
     object_name: str | None = None
     object_type: ObjectType | None = None

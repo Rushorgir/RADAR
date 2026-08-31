@@ -5,7 +5,7 @@ const DatasetContext = createContext();
 
 export function DatasetProvider({ children }) {
   const [dataset, setDatasetState] = useState(() => {
-    const saved = localStorage.getItem("selectedDataset") || "Live LEO Catalog (Unified)";
+    const saved = localStorage.getItem("selectedDataset") || "default";
     setApiDataset(saved);
     return saved;
   });
@@ -14,7 +14,7 @@ export function DatasetProvider({ children }) {
     setApiDataset(newDataset);
     try {
       localStorage.setItem("selectedDataset", newDataset);
-    } catch (e) {}
+    } catch (e) { }
     setDatasetState(newDataset);
   };
 

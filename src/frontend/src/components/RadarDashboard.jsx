@@ -161,7 +161,6 @@ export default function RadarDashboard() {
   }
 
   function selectObject(objectId) {
-    setActiveFilters([]);
     setSelectedObjectId(objectId);
   }
 

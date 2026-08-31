@@ -46,11 +46,11 @@ test("handles objects without a conjunction safely", () => {
   assert.equal(detail.collisionProbability, "< 1.00e-8 (Clear)");
   assert.equal(detail.missDistance, "> 10.00 (Safe Separation)");
   assert.equal(detail.velocity, undefined);
-  assert.equal(detail.relativeVelocity, undefined);
+  assert.equal(detail.relativeVelocity, "N/A (No Threat)");
   assert.equal(detail.risk.label, "Low");
   assert.equal(formatNumber(detail.missDistance), "> 10.00 (Safe Separation)");
   assert.equal(formatNumber(detail.velocity, 1), "—");
-  assert.equal(formatNumber(detail.relativeVelocity, 1), "—");
+  assert.equal(formatNumber(detail.relativeVelocity, 1), "N/A (No Threat)");
   assert.equal(formatProbability(detail.collisionProbability), "< 1.00e-8 (Clear)");
 });
 

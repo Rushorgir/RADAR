@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/reentry", tags=["Re-entry"])
 
 
 @router.get("/watch", response_model=ReentryWatchResponse)
-async def get_reentry_watch(dataset: str = Query("Live LEO Catalog (Unified)", description="Dataset namespace"), db: Session = Depends(get_db)):
+async def get_reentry_watch(dataset: str = Query("default", description="Dataset namespace"), db: Session = Depends(get_db)):
     """
     Re-entry / orbital decay risk for the currently tracked catalog
     (src/propagation/reentry.py), computed live from each object's latest

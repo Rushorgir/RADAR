@@ -20,6 +20,7 @@ import json
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+import typing
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -57,13 +58,13 @@ def rank_events(events):
     post_to_backend's per-item try/except below.
     """
     print(f"\n=== Step 4/6: AI-3 ML Risk Ranking ({len(events)} events) ===")
-    if not ML_RANKING_AVAILABLE:
+    if MLRiskPredictor is None:
         print(f"  -> Skipped: AI-3's ML dependencies aren't installed ({_ML_IMPORT_ERROR}).")
         print("     Install with: pip install -e '.[ml]'")
         return {}
 
     predictor = MLRiskPredictor()
-    scores: dict[str, object] = {}
+    scores: dict[str, typing.Any] = {}
     failed = 0
     t0 = time.time()
     for event in events:
@@ -80,7 +81,7 @@ def rank_events(events):
     return scores
 
 
-def post_to_backend(dataset, events, risk_scores, dataset_name: str):
+def post_to_backend(dataset, events, risk_scores):
     base_url = "http://127.0.0.1:8000/api/ingest"
 
     print("\n=== Step 6/6: Posting to Backend API ===")
@@ -95,7 +96,6 @@ def post_to_backend(dataset, events, risk_scores, dataset_name: str):
         print(f"  -> Posting {len(dataset)} TLEs...")
         for tle in dataset:
             tle_payload = {
-                "dataset_name": dataset_name,
                 "object_id": str(tle.norad_id),
                 "object_name": tle.name,
                 "object_type": tle.object_type.value,
@@ -119,7 +119,6 @@ def post_to_backend(dataset, events, risk_scores, dataset_name: str):
         for event in events:
             # We dump the pydantic model to json dict
             event_payload = json.loads(event.model_dump_json())
-            event_payload["dataset_name"] = dataset_name
             try:
                 response = client.post(f"{base_url}/conjunction", json=event_payload)
                 if response.status_code >= 400:
@@ -142,7 +141,6 @@ def post_to_backend(dataset, events, risk_scores, dataset_name: str):
                 # /conjunction post above, and RiskScoreUpdate ignores
                 # unknown fields anyway, so dumping the whole thing is fine.
                 risk_payload = json.loads(scored.model_dump_json())
-                risk_payload["dataset_name"] = dataset_name
                 try:
                     response = client.post(f"{base_url}/risk", json=risk_payload)
                     if response.status_code >= 400:
@@ -182,39 +180,9 @@ def main() -> None:
     print(f"=== Step 1/6: Fetching + parsing TLE dataset (target {count} objects) ===")
     cache = TLECache()
     t0 = time.time()
-    unified_dataset = build_default_dataset(cache=cache, target_count=count)
+    dataset = build_default_dataset(cache=cache, target_count=count)
     t1 = time.time()
-    print(f"  -> {len(unified_dataset)} objects assembled in {t1 - t0:.2f}s (cached under data/tle_cache/)")
-
-    # Run the full pipeline for the unified catalog
-    run_pipeline_for_dataset("Live LEO Catalog (Unified)", unified_dataset, args, config)
-
-    # Ingest isolated debris datasets for visualization authenticity
-    isolated_groups = {
-        "Cosmos-1408 ASAT Debris": "cosmos-1408-debris",
-        "Fengyun-1C ASAT Debris": "fengyun-1c-debris",
-        "Iridium-33 Collision Debris": "iridium-33-debris",
-    }
-    
-    from src.ingestion.tle_fetcher import fetch_group
-    import random
-    
-    for isolated_name, group_key in isolated_groups.items():
-        print(f"\n=== Fetching isolated dataset: {isolated_name} ===")
-        group_tles = fetch_group(group_key, cache=cache)
-        # Cap isolated datasets at ~300 to keep DB/propagation fast
-        if len(group_tles) > 300:
-            random.Random(42).shuffle(group_tles)
-            group_tles = group_tles[:300]
-        
-        run_pipeline_for_dataset(isolated_name, group_tles, args, config)
-
-    print("\nPipeline OK: End-to-end processing complete.")
-
-def run_pipeline_for_dataset(dataset_name: str, dataset: list, args, config):
-    print(f"\n=======================================================")
-    print(f"=== Running Pipeline for Dataset: {dataset_name} ===")
-    print(f"=======================================================")
+    print(f"  -> {len(dataset)} objects assembled in {t1 - t0:.2f}s (cached under data/tle_cache/)")
 
     print(f"\n=== Step 2/6: SGP4 batch propagation ({config['propagation_horizon_h']}h horizon, {config['screening_timestep_s']}s step) ===")
     start = datetime.now(timezone.utc)
@@ -241,9 +209,11 @@ def run_pipeline_for_dataset(dataset_name: str, dataset: list, args, config):
     print("  -> Sanity checks passed internally via Pydantic validation.")
 
     if args.post_to_backend:
-        post_to_backend(dataset, events, risk_scores, dataset_name=dataset_name)
+        post_to_backend(dataset, events, risk_scores)
     else:
         print("\nSkipping backend posting. Use --post-to-backend to send data to the API.")
+
+    print("\nPipeline OK: End-to-end processing complete.")
 
 if __name__ == "__main__":
     logger.remove()

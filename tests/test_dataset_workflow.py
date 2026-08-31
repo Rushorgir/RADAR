@@ -13,7 +13,7 @@ def test_list_datasets():
     assert response.status_code == 200
     data = response.json()
     assert "datasets" in data
-    assert "Live LEO Catalog (Unified)" in data["datasets"]
+    assert "default" in data["datasets"]
 
 def test_import_dataset_api_endpoint():
     sample_path = Path("data/sample_import.txt")
@@ -140,6 +140,6 @@ async def test_full_dataset_workflow_and_calculations():
     assert dataset_alpha in res_datasets_after.json()["datasets"]
 
     # 10. Verify Cannot Delete Default Dataset
-    res_delete_default = client.delete("/api/datasets/Live LEO Catalog (Unified)")
+    res_delete_default = client.delete("/api/datasets/default")
     assert res_delete_default.status_code == 400
     assert "Cannot delete" in res_delete_default.json()["detail"]
